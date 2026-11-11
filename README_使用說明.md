@@ -1,54 +1,47 @@
-# 聊天備份助手（手機版 PWA）
+# 聊天備份助手 v1.1 — Google Drive 一鍵備份
 
-這是一套**保留原本 ChatGPT 使用方式**的輔助軟體，不是另外的 AI 聊天機器人。可用 iPhone Safari、Android Chrome、電腦瀏覽器執行。版本 1.0，介面為繁體中文。
+此版本在 v1.0 增加 Google 官方 OAuth + Drive API 一鍵上傳。
 
-## 可以做的事情
+## 更新 GitHub Pages
 
-- 匯入 ChatGPT 官方下載的 ZIP（其中有 `conversations.json` 或編號聊天 JSON），或直接匯入解壓後的聊天 JSON。
-- 在手機本機解析可取得的聊天文字與時間順序、搜尋全部已匯入的文字，並依「工作、投資、生活、感情、未分類」分類；可人工修改分類。
-- 在本機保存 ZIP 裡實際包含的部分圖片與附件，也能手動匯入照片、錄音、PDF、Word、Excel、CAD 等原檔。
-- 手動補充新聊天的文字紀錄，或將單一聊天匯出 TXT。
-- 產生包含整理後聊天 JSON、分類文字檔、附件，以及**成功儲存在本機**的官方原始 ZIP 的備份包，使用手機分享選單交給 Google Drive 或下載再上傳。
-- 支援**重新匯入本工具建立的備份包**，例如換手機後還原之前整理的分類與已包含的原始附件（仍受手機空間限制）。
-- 網頁部署到 HTTPS 後可安裝到手機主畫面，首次成功載入後可離線運作。
+你現有的儲存庫：`https://github.com/loyulun23-hash/Allen`
 
-## 不能做的事情（請先看）
+只要將此壓縮檔解壓後的所有檔案，上傳到 GitHub 專案 **根目錄**並 Commit，保留原本 `main` / `(root)` GitHub Pages 設定即可。
 
-- **無法自動讀取 ChatGPT App 裡的新聊天**。ChatGPT 目前沒有提供給第三方此用途的帳號完整歷史同步介面。
-- **不會在每天 00:00 自動匯出所有聊天或背景上傳到 Google Drive**。
-- 不保證官方匯出檔有所有錄音、圖片與附件的原始檔；官方 ZIP 缺失的檔案，軟體也無法還原。
-- 轉換成可搜尋文字會失去部分非文字及編輯分支資訊。**官方匯出的原始 ZIP 才是原始資料的依據**。
-- 由於手機記憶體和儲存空間限制，來源 ZIP 超過 **130 MB** 時不會存入本機；單個從 ZIP 擷取的附件超過 **32 MB** 或所有擷取附件累計超過 **110 MB** 會略過；打包附件+原始 ZIP 超過 **260 MB** 時會停止打包，避免手機卡死。大型檔案請直接備份到 Drive 或使用電腦。
+至少需要覆蓋：`index.html`、`app.js`、`styles.css`、`sw.js`。請勿上傳任何私人聊天、附件、ZIP 或 Google API 金鑰。
 
-## iPhone / Android 佈署使用
+如果看到舊版畫面：在 Safari 重新整理或關閉 PWA 後重開；必要時更新 App 快取，但不要直接清除網站資料（會遺失尚未另存的本機聊天）。
 
-**手機 PWA 需要 HTTPS 網址；直接在 iPhone「檔案」App 點開 HTML，無法保證所有功能能運作。**
+## 首次 Google Cloud 設定（無法由此程式自動代辦）
 
-1. 先在電腦解壓縮這個 ZIP，得到 `index.html`、`app.js`、`styles.css`、`jszip.min.js`、`sw.js`、`manifest.webmanifest` 和 icon 檔。
-2. 將整個資料夾部署到支援 HTTPS 的**靜態網站主機**（例如 Netlify Drop、Cloudflare Pages 或 GitHub Pages）。這些檔案沒有伺服器端程式；**不要將私人聊天 ZIP 上傳到網站主機**。
-3. 用 iPhone Safari 或 Android Chrome 開啟網站網址。
-4. iPhone：Safari 的「分享」→「加入主畫面」。Android：Chrome 的「安裝應用程式／新增到主畫面」。
-5. 從 ChatGPT「設定 → 資料控制 → 匯出資料」申請正式匯出，收到通知後下載官方 ZIP；在新工具內匯入。
-6. 到「備份」產生 ZIP，用手機「分享」選擇 Google Drive（可用目標取決於手機與瀏覽器），或下載後開啟 Google Drive App 上傳。
+1. 登入 https://console.cloud.google.com/ ，建立或選取自己的 Google Cloud 專案。
+2. 在 API Library 啟用 **Google Drive API**。
+3. 到 Google Auth Platform（Google OAuth 同意畫面）填入 App 名稱及聯絡信箱，Audience 選 **External**，如為 Testing 則將自己的 Google 帳號加入 **Test users**。
+4. Data access 加入範圍 `https://www.googleapis.com/auth/drive.file`。
+5. 在 Clients 建立 **OAuth Client ID**，類型為 **Web application**；「Authorized JavaScript origins」填入：
+   `https://loyulun23-hash.github.io`
+   （不要加入 `/Allen/`，也不需在這個彈窗流程填 redirect URI）。
+6. 複製 OAuth **Client ID**（以 `.apps.googleusercontent.com` 結尾）到備份助手「備份」頁面。這是公開識別碼，可以放在網頁上；**絕不可放 Client Secret**。
+7. 按下「一鍵備份到 Google Drive」，Google 第一次會詢問授權，選擇正確帳號並同意。
+8. 成功後會出現雲端備份檔與資料夾連結；驗證檔名、大小與父資料夾。
 
-**Windows 本機測試**：資料夾中開啟終端機，執行 `python -m http.server 8080`，再用瀏覽器開 `http://localhost:8080`。這只是本機測試；手機跨裝置需 HTTPS 或額外的本機網路設定。
+### 會上傳到哪裡？
 
-## 資料與隱私
+程式採用最小 `drive.file` 權限，預設只讀寫由此 App 建立的檔案，會在 Google Drive 的「我的雲端硬碟」根目錄建立 **ChatGPT_備份助手_一鍵上傳** 資料夾，日後使用相同資料夾。此資料夾可在 Drive 裡手動移到既有 `ChatGPT 聊天備份` 主資料夾中，日後 App 仍能透過原檔案權限使用。
 
-- 預設在瀏覽器 `IndexedDB` **本機儲存**，程式沒有 API Key 欄位、登入要求、分析追蹤、遠端資料 API、或自動傳輸私人檔案的程式碼。
-- 資料**未做加密**。請不要在共用／不受信任的手機使用，也不要把含有私人資訊的備份 ZIP 分享到公用位置。
-- 瀏覽器資料可能被系統清除；換手機時不會自動轉移。請定期把備份包傳到 Google Drive，並確認上傳成功。
-- Google Drive 的雲端資料夾應保持私人，並開啟 Google 帳戶的兩步驟驗證。
-- `navigator.share()` 是否提供 Google Drive 作為目的地，取決於裝置、瀏覽器與 Google Drive App 的安裝情況；分享選單開啟**不代表已備份成功**。
+### 這不是自動監看 ChatGPT
 
-## 專案檔案
+「一鍵」指你按一次後，將**已匯入這個工具的資料**打包上傳；不會自行取得 ChatGPT App 的新對話、隱藏附件或完整錄音，也不會在手機鎖定時定時備份。
 
-- `index.html`：主要畫面與功能入口
-- `styles.css`：手機／桌面版響應式設計
-- `app.js`：純前端 ZIP 匯入、索引、分類、IndexedDB、備份包
-- `jszip.min.js`：本機隨附的 JSZip 3.x（MIT）
-- `sw.js`、`manifest.webmanifest`、`icon-*.png`：離線及手機安裝支援
+### 隱私與限制
 
-參考：[OpenAI 官方資料匯出說明](https://help.openai.com/en/articles/7260999)、[Web Share API 相容性](https://developer.mozilla.org/en-US/docs/Web/API/Web_Share_API)。
+- 除了向 Google 官方授權及上傳當次 ZIP，聊天資料仍在你的裝置本機處理。
+- Access Token 僅保存在瀏覽器記憶體，重新開啟後可能再次跳出 Google 授權。OAuth Client ID 會保存在當前裝置的 localStorage。
+- GitHub Pages 是公開的程式網站；不能把私人 ZIP 檔放進程式儲存庫。
+- iPhone Safari/PWA 的 Google 彈出式授權可能被瀏覽器限制。建議**先在 Safari 一般分頁**開啟網站測試；若授權失敗，改用 Safari 一般分頁、允許彈出視窗，或在 Windows Chrome 測試。
+- 大型 ZIP 可能受到 iPhone 記憶體或網路限制；失敗時保留原始 ZIP 並手動上傳，不要清除本機資料。
+- 新增上傳功能未經你的 Google 帳號實際授權測試，需依首次使用結果驗證。
 
-版本：v1.0（2026-11-11）。本軟體為個人輔助工具，不代表 OpenAI 官方提供的產品。
+參考官方說明：
+- https://developers.google.com/identity/oauth2/web/guides/overview
+- https://developers.google.com/workspace/drive/api/guides/manage-uploads
