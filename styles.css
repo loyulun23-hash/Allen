@@ -9,3 +9,10 @@
 .drive-status.error{color:#a52d39}.drive-status.success{color:#257251}
 .drive-result{display:flex;flex-wrap:wrap;gap:12px;padding:12px;border:1px solid #b7dfce;border-radius:10px;background:#f5fcf8;font-size:12px;line-height:1.6}.drive-result a{font-weight:600}
 @media(max-width:600px){.drive-card{padding:16px}.drive-title h3{font-size:16px}.drive-setup input{font-size:12px}}
+
+/* v1.2：附件列表顯示清楚的刪除操作，與變更分類分開 */
+.media-item .delete-file{border:1px solid #edcfd1;border-radius:9px;background:#fff7f7;color:#9a3844;font-size:12px;font-weight:700;padding:9px 12px;flex-shrink:0;min-height:38px;white-space:nowrap;cursor:pointer}
+.media-item .delete-file:hover{background:#ffe7e7;border-color:#dfabb0}
+.media-item .delete-file:focus-visible{outline:3px solid #cf6d7b;outline-offset:2px}
+.media-item .delete-file:disabled{opacity:.5;cursor:wait}
+@media(max-width:600px){.media-item .delete-file{padding:7px 9px;font-size:12px;min-height:36px}.media-item .more{padding:6px 3px}.media-item{gap:6px}}

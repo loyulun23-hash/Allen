@@ -57,6 +57,7 @@
       <section id="view-media" class="panel hidden" aria-label="圖片及附件">
         <div class="section-head"><div><h2>圖片與附件</h2><p>圖片、錄音、PDF、圖面等原檔可單獨保存</p></div><button class="btn btn-outline btn-sm" id="mediaAddMore">＋ 加入檔案</button></div>
         <div class="filters" id="mediaFilters"></div>
+        <p class="small media-delete-hint">刪除只會移除本機資料。已上傳的 Google Drive 舊備份、原始官方 ZIP 不會被刪除；請重新備份才能反映變更。</p>
         <div class="list" id="mediaList"></div>
       </section>
 
@@ -68,7 +69,7 @@
           <div class="flow-step"><span class="step-number">3</span><div><strong>Google Drive 一鍵上傳</strong><p>第一次設定 Google 授權；之後按鈕直接上傳。亦可自行下載 ZIP。</p></div></div>
         </div>
         <section class="drive-card" aria-labelledby="driveTitle">
-          <div class="drive-title"><div><h3 id="driveTitle">☁ Google Drive 一鍵備份 <span class="version-tag">v1.1</span></h3><p>第一次需設定 Google OAuth Client ID；後續可按一下完成打包、上傳與驗證。</p></div></div>
+          <div class="drive-title"><div><h3 id="driveTitle">☁ Google Drive 一鍵備份 <span class="version-tag">v1.2</span></h3><p>第一次需設定 Google OAuth Client ID；後續可按一下完成打包、上傳與驗證。</p></div></div>
           <div class="drive-setup">
             <label class="field" for="googleClientId">Google OAuth 網頁用戶端 ID（不是密碼或 API 金鑰）<input type="text" id="googleClientId" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="123456789012-xxxx.apps.googleusercontent.com"></label>
             <p class="small">只儲存這個公開 Client ID 在此裝置。不會儲存你的 Google 密碼或存取權杖。</p>
@@ -99,7 +100,7 @@
       </section>
     </main>
 
-    <footer><span>CHAT ARCHIVE ASSISTANT <span id="appVersion">v1.1</span></span><span>無帳號密碼 · 無遠端上傳</span></footer>
+    <footer><span>CHAT ARCHIVE ASSISTANT <span id="appVersion">v1.2</span></span><span>無帳號密碼 · 無遠端上傳</span></footer>
   </div>
 
   <input type="file" accept=".zip,.json,application/zip,application/json" id="archiveInput" multiple hidden>

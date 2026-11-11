@@ -1,6 +1,10 @@
-# 聊天備份助手 v1.1 — Google Drive 一鍵備份
+# 聊天備份助手 v1.2 — 單筆附件刪除 + Google Drive 一鍵備份
 
-此版本在 v1.0 增加 Google 官方 OAuth + Drive API 一鍵上傳。
+此版本保留 v1.1 的 Google 官方 OAuth + Drive API 一鍵上傳，新增附件清單內的明確「刪除」按鈕：按下後確認才會移除本機 IndexedDB 內的那個附件，刷新附件數量並清除之前在此頁打包的 ZIP 快取。
+
+注意：刪除不會修改原始官方 ZIP，也不會刪除 Google Drive 已經上傳的備份；要產生不含該附件的新雲端 ZIP，請再按一次一鍵備份。
+
+如果相同附件仍保存在舊 ZIP 或官方來源檔，重新匯入時可能再次加入。
 
 ## 更新 GitHub Pages
 
