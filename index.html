@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111a2d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="聊天備份助手">
+  <meta name="description" content="私人、離線優先的 ChatGPT 聊天與附件備份整理工具">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <title>聊天備份助手 | 本機私人資料庫</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><div class="brand-icon" aria-hidden="true">✦</div><div><strong>聊天備份助手</strong><small>PRIVATE CHAT ARCHIVE</small></div></div>
+      <div class="top-status" title="本機運行，無遠端上傳"><span class="status-dot"></span>僅儲存在本機</div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-top"><span class="eyebrow">CHATS · MEDIA · BACKUP</span><span class="hero-chip">離線優先</span></div>
+        <h1>你的聊天，<br><span>自己保管。</span></h1>
+        <p>保存 ChatGPT 官方匯出紀錄、圖片及附件；搜尋逐字內容、分門別類，最後打包備份到自己的 Google Drive。</p>
+        <div class="hero-actions">
+          <button class="btn btn-primary" id="openImport">＋ 匯入聊天備份</button>
+          <button class="btn btn-soft" id="openMedia">加入圖片／附件</button>
+        </div>
+      </section>
+
+      <div class="safety-note" role="note"><span aria-hidden="true">ⓘ</span><p><strong>重要：</strong>這個工具無法自動讀取 ChatGPT App 裡的新聊天，也無法補回未包含在官方 ZIP 的錄音或附件。請將官方原始 ZIP 另外保存到 Google Drive，勿把手機本機資料當成唯一備份。</p></div>
+
+      <section class="stats" aria-label="備份狀態">
+        <div class="stat"><span>聊天紀錄</span><strong id="chatCount">0</strong><small>已匯入筆數</small></div>
+        <div class="stat"><span>原始附件</span><strong id="mediaCount">0</strong><small>本機保存檔案</small></div>
+        <div class="stat"><span>官方 ZIP</span><strong id="archiveCount">0</strong><small>本機保存來源檔</small></div>
+      </section>
+
+      <nav class="tabs" aria-label="功能分頁">
+        <button data-tab="chats" class="tab active" aria-current="page">對話</button>
+        <button data-tab="media" class="tab">附件</button>
+        <button data-tab="backup" class="tab">備份</button>
+        <button data-tab="guide" class="tab">使用教學</button>
+      </nav>
+
+      <section id="view-chats" class="panel" aria-label="聊天紀錄">
+        <div class="section-head"><div><h2>歷史對話</h2><p>可搜尋匯入的對話文字並修改分類</p></div><button id="newNote" class="btn btn-outline btn-sm">＋ 手動紀錄</button></div>
+        <label class="search"><span aria-hidden="true">⌕</span><input type="search" id="searchInput" placeholder="搜尋標題、人物、對話全文…" autocomplete="off"><span id="matchCount"></span></label>
+        <div class="filters" id="filters" role="group" aria-label="分類篩選"></div>
+        <div class="list" id="conversationList"><div class="empty"><div class="empty-illustration">☷</div><b>尚未匯入聊天</b><p>先按「匯入聊天備份」，選擇 OpenAI 官方下載的 ZIP 或 conversations.json。</p></div></div>
+      </section>
+
+      <section id="view-media" class="panel hidden" aria-label="圖片及附件">
+        <div class="section-head"><div><h2>圖片與附件</h2><p>圖片、錄音、PDF、圖面等原檔可單獨保存</p></div><button class="btn btn-outline btn-sm" id="mediaAddMore">＋ 加入檔案</button></div>
+        <div class="filters" id="mediaFilters"></div>
+        <div class="list" id="mediaList"></div>
+      </section>
+
+      <section id="view-backup" class="panel hidden" aria-label="建立備份包">
+        <div class="section-head"><div><h2>建立完整備份包</h2><p>一鍵打包本機已儲存的資料，再傳到 Google Drive</p></div></div>
+        <div class="backup-flow">
+          <div class="flow-step"><span class="step-number">1</span><div><strong>保留官方來源 ZIP</strong><p>官方原始資料最重要；如果 ZIP 太大，請先自行上傳原檔到雲端。</p></div></div>
+          <div class="flow-step"><span class="step-number">2</span><div><strong>產生本機備份包</strong><p>包含可搜尋聊天資料、分類資訊、已加入的附件及本機保存的原始 ZIP。</p></div></div>
+          <div class="flow-step"><span class="step-number">3</span><div><strong>分享到 Google Drive</strong><p>支援的手機可以開啟系統分享選單；其他裝置則下載後手動上傳。</p></div></div>
+        </div>
+        <div class="backup-card"><div class="backup-label">準備匯出</div><p id="backupSummary">目前沒有可匯出的紀錄</p><button id="buildBackup" class="btn btn-primary btn-wide">建立備份 ZIP</button><div class="backup-commands hidden" id="backupCommands"><button id="shareBackup" class="btn btn-soft">分享／傳送到 Drive</button><button id="downloadBackup" class="btn btn-outline">下載 ZIP</button></div><p class="small" id="backupInfo">建議備份完成後，前往 Google Drive 確認檔案存在且大小正確。</p></div>
+        <h3>已保存的官方原始匯出</h3>
+        <div id="archiveList" class="list"></div>
+        <div class="links"><a target="_blank" rel="noopener noreferrer" href="https://drive.google.com/drive/my-drive">開啟原始 ZIP 雲端資料夾 ↗</a><a target="_blank" rel="noopener noreferrer" href="https://drive.google.com/drive/my-drive">開啟原始附件雲端資料夾 ↗</a></div>
+        <div class="critical"><strong>本機儲存不是永久保證</strong><p>若刪除網站資料、清除瀏覽器、移除 App 或手機空間不足，離線資料可能遺失；請務必將產生的備份 ZIP 存到 Google Drive。大檔案在手機上可能因記憶體限制無法打包。</p></div>
+        <button id="clearAll" class="text-danger">刪除這個工具在本機保存的全部資料</button>
+      </section>
+
+      <section id="view-guide" class="panel hidden" aria-label="使用說明">
+        <div class="section-head"><div><h2>怎麼使用？</h2><p>不需要 OpenAI API Key，也不需要交出帳號密碼</p></div></div>
+        <div class="guide-section"><h3>① 從 ChatGPT 匯出原始資料</h3><p>在 ChatGPT「設定 → 資料控制 → 匯出資料」提出申請。官方寄送通知後下載 ZIP。也可直接匯入解壓後的 <code>conversations.json</code> 或編號 JSON 檔。</p></div>
+        <div class="guide-section"><h3>② 匯入這個工具</h3><p>按主畫面的「匯入聊天備份」。工具在裝置上解析 JSON，保留對話順序與文字、提供搜尋和分類。可保留原始 ZIP（受裝置儲存空間限制）。</p></div>
+        <div class="guide-section"><h3>③ 原始附件另外加入</h3><p>如果需要完整保留圖片、聲音、PDF、Excel、3D 模型，請另外從原始來源將檔案加入「附件」區。官方 ZIP 是否包含各原檔需逐項核對，不能只看是否有聊天文字。</p></div>
+        <div class="guide-section"><h3>④ 打包並儲存到 Drive</h3><p>前往「備份」產生 ZIP，再選擇分享至 Google Drive，或下載後使用 Google Drive App 上傳。備份包內的對話 JSON 是整理後的版本；官方 ZIP 才是原始匯出資料。</p></div>
+        <div class="guide-section"><h3>⑤ 加入手機主畫面</h3><p>iPhone：用 Safari 開啟已部署的 HTTPS 網址，從「分享 → 加入主畫面」安裝。Android：Chrome 選單選「安裝應用程式／加到主畫面」。首次載入後支援離線使用。</p></div>
+        <div class="guide-section"><h3>隱私與使用限制</h3><p>本程式沒有伺服器、沒有追蹤分析、沒有要求登入 ChatGPT，處理流程在瀏覽器本機執行。只有在你主動選擇分享檔案時，才會交給手機分享目的地。手機上的儲存仍有被清除或容量不足風險。</p></div>
+        <a class="doc-link" target="_blank" rel="noopener noreferrer" href="https://help.openai.com/en/articles/7260999">OpenAI 官方匯出說明 ↗</a>
+      </section>
+    </main>
+
+    <footer><span>CHAT ARCHIVE ASSISTANT <span id="appVersion">v1.0</span></span><span>無帳號密碼 · 無遠端上傳</span></footer>
+  </div>
+
+  <input type="file" accept=".zip,.json,application/zip,application/json" id="archiveInput" multiple hidden>
+  <input type="file" id="mediaInput" multiple hidden>
+
+  <dialog id="readerDialog" class="dialog"><div class="dialog-top"><div><span class="dialog-kicker">聊天逐字資料</span><h3 id="readerTitle"></h3></div><button class="close" id="closeReader" aria-label="關閉">×</button></div><div class="reader-meta"><span id="readerMeta"></span><select id="readerCategory" aria-label="更改聊天分類"></select></div><div class="messages" id="readerMessages"></div><div class="dialog-bottom"><button class="btn btn-outline" id="exportConversation">匯出文字檔</button><button class="btn btn-soft" id="copyConversation">複製內容</button></div></dialog>
+  <dialog id="noteDialog" class="dialog small-dialog"><div class="dialog-top"><div><span class="dialog-kicker">自行補充紀錄</span><h3>新增聊天紀錄</h3></div><button class="close" id="closeNote" aria-label="關閉">×</button></div><form id="noteForm"><label class="field">標題<input type="text" id="noteTitle" maxlength="180" placeholder="例如：11月工作討論" required></label><label class="field">分類<select id="noteCategory"></select></label><label class="field">聊天內容<textarea id="noteBody" rows="8" placeholder="貼上你要另外保留的對話文字……" required></textarea></label><button type="submit" class="btn btn-primary btn-wide">儲存本機紀錄</button></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="jszip.min.js"></script><script src="app.js" defer></script>
+</body>
+</html>
