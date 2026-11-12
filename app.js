@@ -1,4 +1,4 @@
-/* 聊天備份助手 v1.2 — 本機處理，使用者明確授權後才上傳 Google Drive。 */
+/* 聊天備份助手 v1.3 — 本機處理，使用者明確授權後才上傳 Google Drive。 */
 'use strict';
 const DB_NAME='chat_backup_assistant_v1';
 const DB_VERSION=1;
@@ -36,7 +36,17 @@ function normalizeConversation(c){if(!c||typeof c!=='object')return null;const m
  const title=String(c.title||'未命名對話');const id=String(c.id||c.conversation_id||`${title}-${c.create_time||''}`);const updatedAt=asMillis(c.update_time)||asMillis(c.create_time)||Date.now();
  return {id,title,category:determineCategory(title),createdAt:asMillis(c.create_time)||updatedAt,updatedAt,messages,source:'ChatGPT 官方匯出',importedAt:Date.now()};}
 function getRawConversationArray(json){if(Array.isArray(json))return json;if(json&&Array.isArray(json.conversations))return json.conversations;if(json&&Array.isArray(json.data))return json.data;return []}
-function normalizeJson(json){const rows=getRawConversationArray(json);if(!rows.length)return [];return rows.map(normalizeConversation).filter(Boolean);}
+function normalizeJson(json){
+ const rows=getRawConversationArray(json);if(!rows.length)return [];
+ return rows.map(c=>{
+   // 兼容從非壓縮雲端備份的 conversations_normalized.json 重新匯入。
+   if(c&&typeof c.id==='string'&&Array.isArray(c.messages)&&!c.mapping&&
+      c.messages.every(m=>m&&typeof m.text==='string'&&typeof m.role==='string')){
+     return {...c,category:GROUPS.includes(c.category)?c.category:'未分類',source:c.source||'備份助手 JSON',importedAt:Date.now()};
+   }
+   return normalizeConversation(c);
+ }).filter(Boolean);
+}
 const isMediaFile=name=>/\.(png|jpe?g|gif|webp|heic|heif|svg|mp3|wav|m4a|aac|ogg|oga|opus|webm|mp4|mov|mkv|pdf|docx?|xlsx?|pptx?|txt|csv|sldprt|sldasm|step|stp|stl|3mf|zip)$/i.test(name);
 const mediaKind=name=>/\.(jpe?g|png|gif|webp|heic|heif|svg)$/i.test(name)?'圖片':/\.(mp3|wav|m4a|aac|ogg|oga|opus|webm|mp4|mov|mkv)$/i.test(name)?'錄音／影片':'其他附件';
 function iconFor(name){const k=mediaKind(name);return k==='圖片'?'▧':k==='錄音／影片'?'♫':'▤'}
@@ -90,7 +100,7 @@ function renderMedia(){$('mediaFilters').replaceChildren(...CATEGORIES.map(c=>pi
  for(const a of matches){const el=document.createElement('div');el.className='list-item';const icon=document.createElement('div');icon.className='file-icon';icon.textContent=iconFor(a.name);const main=document.createElement('button');main.className='item-main';const t=document.createElement('strong');t.textContent=a.name;const p=document.createElement('p');p.textContent=`${a.type} ・ ${fmtSize(a.size)} ・ ${a.source}`;main.append(t,p);main.addEventListener('click',()=>downloadBlob(a.blob,a.name));const cat=document.createElement('span');cat.className='category-badge';cat.textContent=a.category;const opt=document.createElement('button');opt.className='more';opt.type='button';opt.title='更改分類';opt.setAttribute('aria-label',`更改 ${a.name} 的分類`);opt.textContent='⋯';opt.addEventListener('click',async()=>{const v=prompt(`更改「${a.name}」分類：工作 / 投資 / 生活 / 感情 / 未分類`,a.category);if(!v)return;if(!GROUPS.includes(v)){toast('分類必須是工作、投資、生活、感情、未分類');return;}a.category=v;await txWrite('attachments',[a]);await reload();});
  const del=document.createElement('button');del.className='delete-file';del.type='button';del.textContent='刪除';del.title='從此裝置移除附件';del.setAttribute('aria-label',`刪除附件：${a.name}`);
  del.addEventListener('click',async()=>{if(!confirm(`確定要刪除附件「${a.name}」嗎？\n\n此操作會從目前裝置的備份助手移除附件。若原始檔還在，可重新匯入。\n不會刪除已上傳至 Google Drive 的舊備份，也不會改動原始官方 ZIP。`))return;
- del.disabled=true;try{await txWrite('attachments',[a.id],'delete');await reload();$('backupInfo').textContent='附件已變更；請重新建立備份 ZIP 或執行 Google Drive 一鍵備份。';$('driveResult').classList.add('hidden');driveSetStatus('本機附件已刪除。先前上傳的 Google Drive ZIP 不會自動修改；如需更新雲端備份，請再次一鍵備份。');toast(`已從本機刪除「${a.name}」。新備份的附件清單已移除此檔，原始 ZIP 仍可能保留。`,6500);}catch(e){del.disabled=false;toast(`刪除失敗：${e.message}`,6500);}});
+ del.disabled=true;try{await txWrite('attachments',[a.id],'delete');await reload();$('backupInfo').textContent='附件已變更；請重新建立 ZIP 或執行 Google Drive 原檔備份。';$('driveResult').classList.add('hidden');driveSetStatus('本機附件已刪除。先前上傳的 Google Drive 備份不會自動修改；如需更新雲端，請再次一鍵備份。');toast(`已從本機刪除「${a.name}」。新備份的附件清單已移除此檔，原始 ZIP 仍可能保留。`,6500);}catch(e){del.disabled=false;toast(`刪除失敗：${e.message}`,6500);}});
  el.classList.add('media-item');el.append(icon,main,cat,opt,del);list.appendChild(el);}}
 function renderArchives(){const list=$('archiveList');list.replaceChildren();if(!archives.length){const d=document.createElement('div');d.className='empty';d.textContent='目前沒有在本機保存的官方 ZIP。請優先將原始 ZIP 直接上傳到 Google Drive。';list.appendChild(d);return;}
  for(const a of archives){const el=document.createElement('div');el.className='list-item';const icon=document.createElement('div');icon.className='file-icon';icon.textContent='▣';const main=document.createElement('button');main.className='item-main';const t=document.createElement('strong');t.textContent=a.name;const p=document.createElement('p');p.textContent=`${fmtSize(a.size)} ・ 匯入：${fmtTime(a.importedAt)}`;main.append(t,p);main.addEventListener('click',()=>downloadBlob(a.blob,a.name));el.append(icon,main);list.appendChild(el);}}
@@ -99,12 +109,12 @@ function formattedConversation(c){return `${c.title}\n分類：${c.category}｜�
 function openReader(id){const c=chats.find(x=>x.id===id);if(!c)return;openedConversation=c;$('readerTitle').textContent=c.title;$('readerMeta').textContent=`${fmtTime(c.createdAt)} ・ ${c.messages.length} 則對話`;fillSelect($('readerCategory'),c.category);const container=$('readerMessages');container.replaceChildren();for(const m of c.messages){const box=document.createElement('div');box.className='message';box.dataset.role=m.role;const label=document.createElement('div');label.className='message-role';label.textContent=readableRole(m.role)+(m.time?' ・ '+fmtTime(m.time):'');const text=document.createElement('div');text.className='message-text';text.textContent=m.text;box.append(label,text);container.append(box);} $('readerDialog').showModal();}
 function downloadBlob(blob,name){const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
 async function createBackup(){backupFile=null;readyBackup=null;$('backupCommands').classList.add('hidden');if(!chats.length&&!attachments.length&&!archives.length){toast('目前沒有可備份的資料');return;}const estimate=attachments.reduce((x,f)=>x+f.size,0)+archives.reduce((x,f)=>x+f.size,0);if(estimate>MAX_EXPORT_MEMORY){toast(`附件與原始 ZIP 合計 ${fmtSize(estimate)}，超過手機安全打包門檻。請分別把原始檔上傳 Google Drive，或在電腦執行。`,8500);return;}
- const btn=$('buildBackup');btn.disabled=true;btn.textContent='正在建立備份包…';try{const zip=new JSZip();const date=new Date().toISOString().slice(0,10);const manifest={app:'聊天備份助手',version:'1.2',createdAt:new Date().toISOString(),description:'離線整理備份；原始逐字與完整媒體應以官方 ZIP 為準',conversations:chats.length,attachments:attachments.length,sourceArchives:archives.length,limitations:['手機本機資料不保證永久保留','不會自動讀取 ChatGPT App 新聊天','聊天 JSON 僅有可解析文字，非 ChatGPT 原始全部資料','媒體僅包含匯入時實際取得的原檔']};zip.file('README_請先閱讀.txt',`聊天備份助手 ${date}\n這份備份包含此工具已匯入的聊天索引與附件。\n如有 official_exports/ 的 ZIP，原始官方資料請以該 ZIP 為準。\n沒有保證備份所有 ChatGPT 圖片、錄音、附件；沒有自動同步。\n請另外在 Google Drive 保留每次官方下載的原始 ZIP。\n`);
+ const btn=$('buildBackup');btn.disabled=true;btn.textContent='正在建立備份包…';try{const zip=new JSZip();const date=new Date().toISOString().slice(0,10);const manifest={app:'聊天備份助手',version:'1.3',createdAt:new Date().toISOString(),description:'離線整理備份；原始逐字與完整媒體應以官方 ZIP 為準',conversations:chats.length,attachments:attachments.length,sourceArchives:archives.length,limitations:['手機本機資料不保證永久保留','不會自動讀取 ChatGPT App 新聊天','聊天 JSON 僅有可解析文字，非 ChatGPT 原始全部資料','媒體僅包含匯入時實際取得的原檔']};zip.file('README_請先閱讀.txt',`聊天備份助手 ${date}\n這份備份包含此工具已匯入的聊天索引與附件。\n如有 official_exports/ 的 ZIP，原始官方資料請以該 ZIP 為準。\n沒有保證備份所有 ChatGPT 圖片、錄音、附件；沒有自動同步。\n請另外在 Google Drive 保留每次官方下載的原始 ZIP。\n`);
  zip.file('manifest.json',JSON.stringify(manifest,null,2));zip.file('conversations_normalized.json',JSON.stringify(chats,null,2));
  for(const cat of GROUPS){const catRows=chats.filter(c=>c.category===cat);if(catRows.length){const lines=catRows.map(c=>formattedConversation(c)).join('\n\n=================\n\n');zip.file(`分類文字/${cat}.txt`,lines);}}
  for(const [i,a] of attachments.entries()){const folder=zip.folder('attachments').folder(a.category);zip.file(`${String(i+1).padStart(4,'0')}_${escapePath(a.name)}`,a.blob,{binary:true});}
  for(const [i,a] of archives.entries())zip.file(`official_exports/${String(i+1).padStart(3,'0')}_${escapePath(a.name)}`,a.blob,{binary:true,compression:'STORE'});
- readyBackup=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:3}},metadata=>{btn.textContent=`正在打包 ${Math.round(metadata.percent)}%`});const stamp=new Date().toISOString().replace(/[:.]/g,'-');backupFile=new File([readyBackup],`ChatGPT_備份助手_${stamp}.zip`,{type:'application/zip'});$('backupInfo').textContent=`備份包已產生：${fmtSize(backupFile.size)}。請使用「分享」或「下載」實際存到 Google Drive。`;$('backupCommands').classList.remove('hidden');toast('ZIP 已建立。可按一鍵上傳 Drive，或自行下載保存。');return backupFile;
+ readyBackup=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:3}},metadata=>{btn.textContent=`正在打包 ${Math.round(metadata.percent)}%`});const stamp=new Date().toISOString().replace(/[:.]/g,'-');backupFile=new File([readyBackup],`ChatGPT_備份助手_${stamp}.zip`,{type:'application/zip'});$('backupInfo').textContent=`備份包已產生：${fmtSize(backupFile.size)}。請使用「分享」或「下載」實際存到 Google Drive。`;$('backupCommands').classList.remove('hidden');toast('本機 ZIP 已建立，可自行下載保存；Google Drive 一鍵備份會直接上傳非壓縮檔案。');return backupFile;
  }catch(e){console.error(e);toast(`建立備份包失敗：${e.message}`,6000);return null;}finally{btn.disabled=false;btn.textContent='重新建立備份 ZIP';}}
 async function shareBackup(){if(!backupFile){toast('請先建立備份 ZIP');return;}if(navigator.share&&navigator.canShare?.({files:[backupFile]})){try{await navigator.share({files:[backupFile],title:'ChatGPT 備份資料',text:'請保存到我的 Google Drive'});toast('已交給手機分享功能；請自行確認 Google Drive 是否上傳成功。');return;}catch(e){if(e.name==='AbortError')return;toast('手機分享失敗，請改用下載 ZIP。');return;}}toast('此瀏覽器不支援分享 ZIP 檔，請使用「下載 ZIP」，再上傳 Google Drive。');}
 
@@ -115,7 +125,7 @@ const DRIVE_CLIENT_ID_STORAGE='backup_assistant_google_client_id';
 let googleToken=null, googleTokenExpiry=0, googleTokenClient=null, driveBusy=false;
 const driveSetStatus=(message,kind='')=>{const el=$('driveStatus');el.textContent=message;el.className='drive-status '+kind;};
 function getClientId(){return $('googleClientId').value.trim();}
-function setDriveButtons(busy){driveBusy=busy;const b=$('driveOneClick');b.disabled=busy;b.textContent=busy?'處理中，請勿關閉頁面…':'☁ 一鍵備份到 Google Drive';}
+function setDriveButtons(busy){driveBusy=busy;const b=$('driveOneClick');b.disabled=busy;b.textContent=busy?'正在逐檔上傳，請保持畫面開啟…':'☁ 一鍵上傳原始檔到 Drive（不壓縮）';}
 function getDriveAccessToken(clientId){
   if(googleToken&&Date.now()<googleTokenExpiry-60000)return Promise.resolve(googleToken);
   if(!window.google?.accounts?.oauth2)throw Error('Google 登入元件未載入。請確認網路連線，使用 Safari 一般分頁重新整理。');
@@ -159,47 +169,157 @@ async function driveEnsureFolder(token){
   if(!created.id)throw Error('Drive 資料夾建立失敗。');
   return created.id;
 }
-async function driveUploadBackup(file,folderId,token){
-  const boundary='chatbackup_'+Math.random().toString(36).slice(2);
-  const metadata={name:file.name,mimeType:'application/zip',parents:[folderId],description:'由 ChatGPT 聊天備份助手 v1.2 經本人授權上傳'};
-  const multipart=new Blob([
-    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
-    JSON.stringify(metadata),
-    `\r\n--${boundary}\r\nContent-Type: application/zip\r\n\r\n`,
-    file,
-    `\r\n--${boundary}--\r\n`
-  ]);
-  return driveRequest('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,parents,webViewLink',{method:'POST',headers:{'Content-Type':`multipart/related; boundary=${boundary}`},body:multipart},token);
+// v1.3：Google Drive 端不再建立或上傳 ZIP；聊天、附件與官方 ZIP 解壓內容個別存檔。
+const MAX_CLOUD_ARCHIVE_ENTRY=48*1024*1024; // iPhone 單次 JSZip 解壓安全上限（超過會中止並報錯）。
+const MAX_CLOUD_ARCHIVE_ITEMS=6000;
+const CLOUD_MULTIPART_MAX=5*1024*1024;
+const CLOUD_RESUMABLE_CHUNK=5*1024*1024; // 5 MiB 是 256 KiB 的整數倍。
+const cloudMimeByExt={txt:'text/plain',json:'application/json',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',pdf:'application/pdf',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',heic:'image/heic',m4a:'audio/mp4',mp3:'audio/mpeg',wav:'audio/wav',mp4:'video/mp4',mov:'video/quicktime',csv:'text/csv',html:'text/html',md:'text/markdown',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'};
+function cloudMime(name,blob){if(blob?.type&&blob.type!=='application/octet-stream')return blob.type;const ext=String(name||'').split('.').pop().toLowerCase();return cloudMimeByExt[ext]||'application/octet-stream';}
+function cloudTimestamp(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date()).replace(' ','_').replace(/:/g,'-');}
+function cloudSafeName(s){return escapePath(s).replace(/[\\/]/g,'_')||'未命名';}
+function cloudSafeSegments(s){const segments=String(s||'').replace(/\\/g,'/').split('/').filter(x=>x&&x!=='.');if(segments.length>16)throw Error('原始 ZIP 含有過深的資料夾路徑，請在電腦另外處理，避免路徑遺失。');return segments.map(x=>x==='..'?'_上層_':cloudSafeName(x));}
+function cloudTextBlob(text){return new Blob([text],{type:'text/plain;charset=utf-8'});}
+function cloudJsonBlob(value){return new Blob([JSON.stringify(value,null,2)],{type:'application/json'});}
+async function cloudMakePlan(){
+ const jobs=[];const opened=[];const exportedAt=new Date().toISOString();
+ // JSON 是備份助手可重新匯入的資料；TXT 讓人不經過 ZIP 即可閱讀。
+ jobs.push({dirs:['聊天紀錄'],name:'conversations_normalized.json',blob:cloudJsonBlob(chats),source:'整理後的聊天索引 JSON'});
+ for(const c of chats){const cat=GROUPS.includes(c.category)?c.category:'未分類';const tail=cloudSafeName(c.id).slice(0,28);
+   jobs.push({dirs:['聊天紀錄',cat],name:`${cloudSafeName(c.title).slice(0,90)}_${tail}.txt`,blob:cloudTextBlob(formattedConversation(c)),source:'聊天文字'});
+ }
+ for(const a of attachments){
+   if(!a.blob||typeof a.blob.size!=='number')throw Error(`附件「${a.name}」在本機沒有可用的原始位元組，無法完整備份。`);
+   if(/\.zip$/i.test(a.name)||cloudMime(a.name,a.blob)==='application/zip')throw Error(`附件「${a.name}」是 ZIP；為符合雲端不儲存壓縮檔，請先在本機解壓後重新加入原檔。`);
+   const cat=GROUPS.includes(a.category)?a.category:'未分類';
+   jobs.push({dirs:['附件',cat],name:cloudSafeName(a.name),blob:a.blob,source:a.source||'本機附件'});
+ }
+ // 官方 ZIP 在本機仍保留，Drive 僅存其中已解壓的原始檔案，不存 ZIP 容器。
+ for(let i=0;i<archives.length;i++){
+   const archive=archives[i];let zip;
+   try{zip=await JSZip.loadAsync(archive.blob);}catch(e){throw Error(`原始備份「${archive.name}」無法解壓，為避免漏檔，雲端備份已中止。`);}
+   const entries=Object.values(zip.files).filter(e=>!e.dir);
+   if(entries.length>MAX_CLOUD_ARCHIVE_ITEMS)throw Error(`「${archive.name}」內有 ${entries.length} 個檔案，超過手機安全批次上限。請改用電腦解壓後分批匯入。`);
+   const root=`${String(i+1).padStart(3,'0')}_${cloudSafeName(archive.name).replace(/\.zip$/i,'')}`;
+   for(const entry of entries){
+     const parts=cloudSafeSegments(entry.name);if(!parts.length)continue;
+     const fileName=parts.pop();
+     if(/\.zip$/i.test(fileName))throw Error(`原始匯出「${archive.name}」內包含另一份 ZIP（${entry.name}）。為符合不傳 ZIP 的要求，請先另外解壓此檔案再備份。`);
+     const size=entry._data?.uncompressedSize;
+     if(!Number.isFinite(size)||size>MAX_CLOUD_ARCHIVE_ENTRY)throw Error(`「${entry.name}」解壓後超過 ${fmtSize(MAX_CLOUD_ARCHIVE_ENTRY)} 或無法判斷大小；本次不會宣稱完整備份。請在電腦另外解壓後保存。`);
+     jobs.push({dirs:['官方匯出解壓',root,...parts],name:fileName,zipEntry:entry,size,source:`原始匯出 ${archive.name}`});
+   }
+   opened.push({name:archive.name,entries:entries.length});
+ }
+ if(jobs.length>10000)throw Error('本次檔案數量超過 10000，請分批保存。');
+ // 避免同一資料夾內有重複檔名，確保 Drive 端容易核對。
+ const used=new Set();
+ for(const job of jobs){const path=job.dirs.join('/');const original=job.name;let name=original;let n=2;
+   while(used.has(`${path}/${name}`)){const dot=original.lastIndexOf('.');const base=dot>0?original.slice(0,dot):original;const ext=dot>0?original.slice(dot):'';name=`${base}_${n++}${ext}`;}
+   job.name=name;used.add(`${path}/${name}`);
+ }
+ return {jobs,opened,exportedAt};
+}
+async function cloudCreateFolder(name,parentId,token){
+ const parent=parentId?[parentId]:undefined;
+ const metadata={name,mimeType:'application/vnd.google-apps.folder'};if(parent)metadata.parents=parent;
+ const r=await driveRequest('https://www.googleapis.com/drive/v3/files?fields=id,name,parents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(metadata)},token);
+ if(!r.id)throw Error(`建立 Google Drive 資料夾「${name}」失敗`);return r.id;
+}
+async function cloudUploadFile({name,blob,folderId,token}){
+ const mime=cloudMime(name,blob);const metadata={name,mimeType:mime,parents:[folderId],description:'ChatGPT 備份助手 v1.3 原始檔案備份（非 ZIP）'};
+ if(blob.size<=CLOUD_MULTIPART_MAX){
+   const boundary='chatbackup_'+Math.random().toString(36).slice(2);
+   const body=new Blob([`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,JSON.stringify(metadata),`\r\n--${boundary}\r\nContent-Type: ${mime}\r\n\r\n`,blob,`\r\n--${boundary}--\r\n`]);
+   return driveRequest('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,parents,webViewLink',{method:'POST',headers:{'Content-Type':`multipart/related; boundary=${boundary}`},body},token);
+ }
+ // 大於 5 MiB：採用 Google Drive resumable upload，避免一次組成巨大上傳請求。
+ const init=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,size,parents,webViewLink',{
+   method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':mime,'X-Upload-Content-Length':String(blob.size)},body:JSON.stringify(metadata)
+ });
+ if(!init.ok){const d=await init.json().catch(()=>({}));throw Error(`大檔初始化失敗：${d?.error?.message||init.status}`);}
+ const session=init.headers.get('Location');if(!session)throw Error('Google Drive 未回傳分段上傳位置，請確認瀏覽器及 CORS 設定。');
+ let offset=0;
+ while(offset<blob.size){
+   const end=Math.min(offset+CLOUD_RESUMABLE_CHUNK,blob.size);
+   const response=await fetch(session,{method:'PUT',headers:{'Content-Type':mime,'Content-Range':`bytes ${offset}-${end-1}/${blob.size}`},body:blob.slice(offset,end)});
+   if(response.status===308){const range=response.headers.get('Range');const n=range&&/-(\d+)$/.exec(range);offset=n?Number(n[1])+1:end;continue;}
+   if(!response.ok){const d=await response.json().catch(()=>({}));throw Error(`大檔分段上傳失敗：${d?.error?.message||response.status}`);}
+   return response.json();
+ }
+ throw Error('分段上傳未收到完成確認');
+}
+async function cloudListFolderItems(folderId,token){
+ let pageToken='',result=[];
+ do{
+   const q=`'${quoteDriveQuery(folderId)}' in parents and trashed = false`;
+   const params=new URLSearchParams({q,fields:'nextPageToken,files(id,name,size,mimeType,parents)',pageSize:'1000'});
+   if(pageToken)params.set('pageToken',pageToken);
+   const page=await driveRequest(`https://www.googleapis.com/drive/v3/files?${params}`,{},token);
+   result.push(...arr(page.files));pageToken=page.nextPageToken||'';
+ }while(pageToken);
+ return result;
+}
+async function cloudVerifyFiles(expectedByParent,token){
+ for(const [folderId,items] of expectedByParent){
+   const listed=await cloudListFolderItems(folderId,token);
+   const map=new Map(listed.map(f=>[f.id,f]));
+   for(const wanted of items){const found=map.get(wanted.id);
+     if(!found||found.name!==wanted.name||Number(found.size)!==wanted.size)throw Error(`雲端核對失敗：${wanted.name}；請勿把這次視為完整備份。`);
+   }
+ }
 }
 async function oneClickDrive(){
-  if(driveBusy)return;
-  const clientId=getClientId();
-  if(!/^[0-9]+-[a-z0-9_-]+\.apps\.googleusercontent\.com$/i.test(clientId)){
-    driveSetStatus('請先填入 Google Cloud 建立的「網頁應用程式 OAuth Client ID」，不是 API Key。','error');return;
-  }
-  if(!chats.length&&!attachments.length&&!archives.length){driveSetStatus('本機還沒有聊天或附件可備份。請先匯入檔案。','error');return;}
-  localStorage.setItem(DRIVE_CLIENT_ID_STORAGE,clientId);
-  $('driveResult').classList.add('hidden');
-  setDriveButtons(true);driveSetStatus('正在請求 Google 授權…');
-  try{
-    // 先授權、後打包，保持 Safari OAuth 彈窗在點擊事件的使用者手勢內。
-    const token=await getDriveAccessToken(clientId);
-    driveSetStatus('正在建立最新備份 ZIP…');
-    const file=await createBackup();
-    if(!file)throw Error('ZIP 沒有成功建立；資料過大時可分開上傳，或使用電腦。');
-    driveSetStatus(`正在準備 Google Drive 資料夾，將上傳 ${fmtSize(file.size)}…`);
-    const folderId=await driveEnsureFolder(token);
-    driveSetStatus(`正在上傳 ${fmtSize(file.size)} 到 Google Drive…`);
-    const uploaded=await driveUploadBackup(file,folderId,token);
-    // 讀回 metadata 而非只信任 POST 成功；至少核對檔名、大小及父資料夾。
-    const verified=await driveRequest(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(uploaded.id)}?fields=id,name,size,parents,webViewLink`,{},token);
-    if(verified.name!==file.name||Number(verified.size)!==file.size||!verified.parents?.includes(folderId))throw Error('檔案已送出，但雲端檔名、大小或儲存位置核對異常。請自行進入 Drive 檢查。');
-    const link=verified.webViewLink||`https://drive.google.com/file/d/${encodeURIComponent(verified.id)}/view`;
-    $('driveFileLink').href=link;$('driveFolderLink').href=`https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}`;
-    $('driveResult').classList.remove('hidden');
-    driveSetStatus(`上傳成功！已核對：${file.name}（${fmtSize(file.size)}），儲存在 Google Drive 專屬備份資料夾。`,'success');
-    toast('Google Drive 已完成上傳並驗證檔案大小！',6000);
-  }catch(e){console.error(e);driveSetStatus(`備份尚未確認成功：${e.message}`,'error');toast('Google Drive 一鍵備份未完成；本機資料未刪除。',6000);}finally{setDriveButtons(false);}
+ if(driveBusy)return;
+ const clientId=getClientId();
+ if(!/^[0-9]+-[a-z0-9_-]+\.apps\.googleusercontent\.com$/i.test(clientId)){
+   driveSetStatus('請先填入 Google Cloud 的網頁 OAuth Client ID。','error');return;
+ }
+ if(!chats.length&&!attachments.length&&!archives.length){driveSetStatus('本機沒有可上傳的聊天或附件，請先匯入。','error');return;}
+ localStorage.setItem(DRIVE_CLIENT_ID_STORAGE,clientId);
+ $('driveResult').classList.add('hidden');setDriveButtons(true);
+ let runId=null;
+ try{
+   // 首先呼叫 Google 授權，維持 Safari 彈窗的使用者操作脈絡。
+   driveSetStatus('正在請求 Google 授權…');const token=await getDriveAccessToken(clientId);
+   driveSetStatus('正在檢查附件與官方 ZIP 的可解壓內容…');const {jobs,opened,exportedAt}=await cloudMakePlan();
+   const parent=await driveEnsureFolder(token);
+   const now=cloudTimestamp();runId=await cloudCreateFolder(`未完成_${now}`,parent,token);
+   const folderMap=new Map([['',runId]]),expectedByParent=new Map();
+   const folderFor=async dirs=>{let path='',pid=runId;for(const segment of dirs){path+='/'+segment;if(!folderMap.has(path))folderMap.set(path,await cloudCreateFolder(segment,pid,token));pid=folderMap.get(path);}return pid;};
+   const stored=[];let count=0;
+   const tasks=[...jobs];
+   // README 和清單不壓縮；完成前先保存檔案，再核對後才改名為「完成」。
+   const readme=`ChatGPT 聊天備份助手 v1.3｜非壓縮雲端備份\n產生時間：${exportedAt}\n每個聊天與附件均為獨立檔案，不包含 ZIP 容器。\n聊天紀錄/conversations_normalized.json 可以下載後重新匯入助手（分類資訊保留）。\n聊天文字可以直接在 Drive 瀏覽；附件保留匯入時的位元組與格式。\n官方匯出解壓/ 保存了本機已匯入官方 ZIP 裡能解壓的各原始檔案。\n備份助手無法讀取尚未匯入的 ChatGPT 新對話；官方資料也可能缺少某些媒體。\n如果某次資料夾仍以「未完成_」開頭，表示未通過全部上傳及核對，不可視為完成。\n`; 
+   tasks.push({dirs:[],name:'README_請先閱讀.txt',blob:cloudTextBlob(readme),source:'備份說明'});
+   const summary={app:'聊天備份助手',version:'1.3',backupType:'individual-files-no-zip',createdAt:exportedAt,chatCount:chats.length,attachmentCount:attachments.length,officialArchiveCount:archives.length,officialArchiveEntries:opened,files:jobs.map(j=>({path:[...j.dirs,j.name].join('/'),bytes:j.size??j.blob?.size??null,source:j.source})),limitations:['只含備份助手已取得的資料','官方 ZIP 可能未包含所有附件或錄音','不會自動擷取新聊天']};
+   tasks.push({dirs:[],name:'備份清單.json',blob:cloudJsonBlob(summary),source:'檔案清單'});
+   const total=tasks.length;
+   for(const task of tasks){
+     count++;driveSetStatus(`直接上傳非壓縮檔案 ${count}/${total}：${task.name}（請保持畫面開啟）`);
+     const folderId=await folderFor(task.dirs);
+     let blob=task.blob;
+     if(task.zipEntry){try{blob=await task.zipEntry.async('blob');}catch(e){throw Error(`解壓失敗：${task.name}`);}}
+     const expectedSize=task.size??blob.size;
+     if(blob.size!==expectedSize)throw Error(`檔案「${task.name}」大小異常`);
+     const sent=await cloudUploadFile({name:task.name,blob,folderId,token});
+     if(!sent?.id||sent.name!==task.name||Number(sent.size)!==blob.size||!sent.parents?.includes(folderId))throw Error(`「${task.name}」上傳回應未通過檔名、大小或路徑核對。`);
+     if(!expectedByParent.has(folderId))expectedByParent.set(folderId,[]);
+     expectedByParent.get(folderId).push({id:sent.id,name:task.name,size:blob.size});
+     stored.push({id:sent.id,name:task.name,size:blob.size});
+     // 循序處理，降低 iPhone 的記憶體壓力。
+   }
+   driveSetStatus('上傳完成，正在逐資料夾核對檔案名稱與大小…');
+   await cloudVerifyFiles(expectedByParent,token);
+   const doneName=`完成_${now}_${stored.length}檔`;
+   const renamed=await driveRequest(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(runId)}?fields=id,name`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:doneName})},token);
+   if(renamed?.name!==doneName)throw Error('檔案已上傳，但無法標記為已完成，請開啟雲端確認。');
+   $('driveFileLink').href=`https://drive.google.com/drive/folders/${encodeURIComponent(runId)}`;
+   $('driveFolderLink').href=`https://drive.google.com/drive/folders/${encodeURIComponent(parent)}`;
+   $('driveResult').classList.remove('hidden');
+   driveSetStatus(`完成！${stored.length} 個非壓縮檔案已直接存到 Google Drive，並核對數量、名稱和大小。`,'success');
+   toast('Google Drive 非壓縮備份已完成！',6000);
+ }catch(e){console.error(e);const extra=runId?'；雲端若出現「未完成_」資料夾，裡面的部分檔案不能視為完整備份。':'';driveSetStatus(`未完成：${e.message}${extra}`,'error');toast('一鍵備份未完成，原本本機資料沒有刪除。',6500);}finally{setDriveButtons(false);}
 }
 
 function selectTab(name){activeTab=name;for(const btn of document.querySelectorAll('[data-tab]')){btn.classList.toggle('active',btn.dataset.tab===name);if(btn.dataset.tab===name)btn.setAttribute('aria-current','page');else btn.removeAttribute('aria-current');}for(const v of ['chats','media','backup','guide'])$(`view-${v}`).classList.toggle('hidden',v!==name);}

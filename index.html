@@ -25,7 +25,7 @@
       <section class="hero">
         <div class="hero-top"><span class="eyebrow">CHATS · MEDIA · BACKUP</span><span class="hero-chip">離線優先</span></div>
         <h1>你的聊天，<br><span>自己保管。</span></h1>
-        <p>保存 ChatGPT 官方匯出紀錄、圖片及附件；搜尋逐字內容、分門別類，最後打包備份到自己的 Google Drive。</p>
+        <p>保存 ChatGPT 官方匯出紀錄、圖片及附件；搜尋逐字內容、分門別類，直接將原始檔案分類備份到自己的 Google Drive。</p>
         <div class="hero-actions">
           <button class="btn btn-primary" id="openImport">＋ 匯入聊天備份</button>
           <button class="btn btn-soft" id="openMedia">加入圖片／附件</button>
@@ -65,26 +65,26 @@
         <div class="section-head"><div><h2>建立完整備份包</h2><p>由你授權後，直接將本機資料備份到自己的 Google Drive</p></div></div>
         <div class="backup-flow">
           <div class="flow-step"><span class="step-number">1</span><div><strong>保留官方來源 ZIP</strong><p>官方原始資料最重要；如果 ZIP 太大，請先自行上傳原檔到雲端。</p></div></div>
-          <div class="flow-step"><span class="step-number">2</span><div><strong>產生本機備份包</strong><p>包含可搜尋聊天資料、分類資訊、已加入的附件及本機保存的原始 ZIP。</p></div></div>
-          <div class="flow-step"><span class="step-number">3</span><div><strong>Google Drive 一鍵上傳</strong><p>第一次設定 Google 授權；之後按鈕直接上傳。亦可自行下載 ZIP。</p></div></div>
+          <div class="flow-step"><span class="step-number">2</span><div><strong>整理成獨立檔案</strong><p>聊天存為 TXT 與 JSON，附件保留原始格式；官方 ZIP 在雲端解壓成個別檔案。</p></div></div>
+          <div class="flow-step"><span class="step-number">3</span><div><strong>直接上傳 Google Drive</strong><p>不製作雲端 ZIP，逐檔上傳並核對；本機 ZIP 仍可另外下載。</p></div></div>
         </div>
         <section class="drive-card" aria-labelledby="driveTitle">
-          <div class="drive-title"><div><h3 id="driveTitle">☁ Google Drive 一鍵備份 <span class="version-tag">v1.2</span></h3><p>第一次需設定 Google OAuth Client ID；後續可按一下完成打包、上傳與驗證。</p></div></div>
+          <div class="drive-title"><div><h3 id="driveTitle">☁ Google Drive 原檔一鍵備份 <span class="version-tag">v1.3</span></h3><p>已設定 Google OAuth Client ID 的話，直接按一下即可將聊天、圖片、PDF、錄音等個別上傳，不壓縮。</p></div></div>
           <div class="drive-setup">
             <label class="field" for="googleClientId">Google OAuth 網頁用戶端 ID（不是密碼或 API 金鑰）<input type="text" id="googleClientId" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="123456789012-xxxx.apps.googleusercontent.com"></label>
             <p class="small">只儲存這個公開 Client ID 在此裝置。不會儲存你的 Google 密碼或存取權杖。</p>
             <p class="small"><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">開啟 Google Cloud OAuth 設定 ↗</a> ・ <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer">啟用 Google Drive API ↗</a></p>
           </div>
-          <button id="driveOneClick" class="btn btn-primary btn-wide">☁ 一鍵備份到 Google Drive</button>
+          <button id="driveOneClick" class="btn btn-primary btn-wide">☁ 一鍵上傳原始檔到 Drive（不壓縮）</button>
           <p id="driveStatus" class="drive-status" role="status" aria-live="polite">尚未連接。首次使用會跳出 Google 授權視窗。</p>
-          <p class="small">最小授權範圍：drive.file。會在「我的雲端硬碟」建立專屬「ChatGPT_備份助手_一鍵上傳」資料夾；不會讀取你的其他雲端檔案。</p>
-          <div id="driveResult" class="hidden drive-result"><span>✅ 已完成上傳及大小驗證</span> <a id="driveFileLink" href="#" target="_blank" rel="noopener noreferrer">開啟雲端備份檔 ↗</a> <a id="driveFolderLink" href="#" target="_blank" rel="noopener noreferrer">開啟備份資料夾 ↗</a></div>
+          <p class="small">最小授權範圍：drive.file。會在「ChatGPT_備份助手_一鍵上傳」內建立新的「完成_日期」快照資料夾。原始附件格式不變；先前 ZIP 備份不會自動刪除。</p>
+          <div id="driveResult" class="hidden drive-result"><span>✅ 個別檔案已上傳並驗證</span> <a id="driveFileLink" href="#" target="_blank" rel="noopener noreferrer">開啟本次非壓縮備份 ↗</a> <a id="driveFolderLink" href="#" target="_blank" rel="noopener noreferrer">開啟備份總資料夾 ↗</a></div>
         </section>
-        <div class="backup-card"><div class="backup-label">準備匯出</div><p id="backupSummary">目前沒有可匯出的紀錄</p><button id="buildBackup" class="btn btn-primary btn-wide">建立備份 ZIP</button><div class="backup-commands hidden" id="backupCommands"><button id="shareBackup" class="btn btn-soft">分享／傳送到 Drive</button><button id="downloadBackup" class="btn btn-outline">下載 ZIP</button></div><p class="small" id="backupInfo">建議備份完成後，前往 Google Drive 確認檔案存在且大小正確。</p></div>
+        <div class="backup-card"><div class="backup-label">選用：另存本機 ZIP（不會上傳雲端）</div><p id="backupSummary">目前沒有可匯出的紀錄</p><button id="buildBackup" class="btn btn-primary btn-wide">建立備份 ZIP</button><div class="backup-commands hidden" id="backupCommands"><button id="shareBackup" class="btn btn-soft">分享／傳送到 Drive</button><button id="downloadBackup" class="btn btn-outline">下載 ZIP</button></div><p class="small" id="backupInfo">上方一鍵備份不使用 ZIP；這裡僅提供本機離線 ZIP，適合其他儲存媒介。</p></div>
         <h3>已保存的官方原始匯出</h3>
         <div id="archiveList" class="list"></div>
         <div class="links"><a target="_blank" rel="noopener noreferrer" href="https://drive.google.com/drive/my-drive">開啟原始 ZIP 雲端資料夾 ↗</a><a target="_blank" rel="noopener noreferrer" href="https://drive.google.com/drive/my-drive">開啟原始附件雲端資料夾 ↗</a></div>
-        <div class="critical"><strong>本機儲存不是永久保證</strong><p>若刪除網站資料、清除瀏覽器、移除 App 或手機空間不足，離線資料可能遺失；請務必將產生的備份 ZIP 存到 Google Drive。大檔案在手機上可能因記憶體限制無法打包。</p></div>
+        <div class="critical"><strong>本機儲存不是永久保證</strong><p>若刪除網站資料、清除瀏覽器、移除 App 或手機空間不足，離線資料可能遺失；請務必確認雲端有「完成_」資料夾；若仍顯示「未完成_」，代表未通過核對。大檔案解壓可能受手機記憶體限制。</p></div>
         <button id="clearAll" class="text-danger">刪除這個工具在本機保存的全部資料</button>
       </section>
 
@@ -93,14 +93,14 @@
         <div class="guide-section"><h3>① 從 ChatGPT 匯出原始資料</h3><p>在 ChatGPT「設定 → 資料控制 → 匯出資料」提出申請。官方寄送通知後下載 ZIP。也可直接匯入解壓後的 <code>conversations.json</code> 或編號 JSON 檔。</p></div>
         <div class="guide-section"><h3>② 匯入這個工具</h3><p>按主畫面的「匯入聊天備份」。工具在裝置上解析 JSON，保留對話順序與文字、提供搜尋和分類。可保留原始 ZIP（受裝置儲存空間限制）。</p></div>
         <div class="guide-section"><h3>③ 原始附件另外加入</h3><p>如果需要完整保留圖片、聲音、PDF、Excel、3D 模型，請另外從原始來源將檔案加入「附件」區。官方 ZIP 是否包含各原檔需逐項核對，不能只看是否有聊天文字。</p></div>
-        <div class="guide-section"><h3>④ 打包並儲存到 Drive</h3><p>第一次在「備份」設定 Google Cloud OAuth Web Client ID，按「一鍵備份到 Google Drive」並完成 Google 授權，程式將自動打包、上傳及核對大小。亦可下載 ZIP 手動保存。備份包內的對話 JSON 是整理後的版本；官方 ZIP 才是原始匯出資料。</p></div>
+        <div class="guide-section"><h3>④ 打包並儲存到 Drive</h3><p>第一次在「備份」設定 Google Cloud OAuth Web Client ID，再按「一鍵上傳原始檔到 Drive（不壓縮）」。程式會建立一個新的快照資料夾：聊天以 TXT / JSON 儲存，附件保留原始格式，官方 ZIP 在雲端會以解壓後的檔案保存。完成後核對雲端檔案清單及大小。也可以另下載本機 ZIP；它不會上傳到雲端。</p></div>
         <div class="guide-section"><h3>⑤ 加入手機主畫面</h3><p>iPhone：用 Safari 開啟已部署的 HTTPS 網址，從「分享 → 加入主畫面」安裝。Android：Chrome 選單選「安裝應用程式／加到主畫面」。首次載入後支援離線使用。</p></div>
-        <div class="guide-section"><h3>隱私與使用限制</h3><p>本程式沒有自己的後端伺服器、沒有追蹤分析、沒有要求登入 ChatGPT。僅在你主動點擊一鍵備份並完成 Google OAuth 授權後，將當次備份 ZIP 送往 Google Drive API。Google 存取權杖只存於記憶體，不寫入本機儲存。手機上的儲存仍有被清除或容量不足風險。</p></div>
+        <div class="guide-section"><h3>隱私與使用限制</h3><p>本程式沒有自己的後端伺服器、沒有追蹤分析、沒有要求登入 ChatGPT。僅在你主動點擊一鍵備份並完成 Google OAuth 授權後，將各個原始檔送往 Google Drive API。Google 存取權杖只存於記憶體，不寫入本機儲存。手機上的儲存仍有被清除或容量不足風險。</p></div>
         <a class="doc-link" target="_blank" rel="noopener noreferrer" href="https://help.openai.com/en/articles/7260999">OpenAI 官方匯出說明 ↗</a>
       </section>
     </main>
 
-    <footer><span>CHAT ARCHIVE ASSISTANT <span id="appVersion">v1.2</span></span><span>無帳號密碼 · 無遠端上傳</span></footer>
+    <footer><span>CHAT ARCHIVE ASSISTANT <span id="appVersion">v1.3</span></span><span>不存密碼 · 僅主動授權上傳</span></footer>
   </div>
 
   <input type="file" accept=".zip,.json,application/zip,application/json" id="archiveInput" multiple hidden>

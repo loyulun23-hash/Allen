@@ -16,3 +16,6 @@
 .media-item .delete-file:focus-visible{outline:3px solid #cf6d7b;outline-offset:2px}
 .media-item .delete-file:disabled{opacity:.5;cursor:wait}
 @media(max-width:600px){.media-item .delete-file{padding:7px 9px;font-size:12px;min-height:36px}.media-item .more{padding:6px 3px}.media-item{gap:6px}}
+
+/* v1.3：逐檔備份狀態，手機上長檔名自動換行 */
+.drive-result,.drive-status{overflow-wrap:anywhere;word-break:break-word}
