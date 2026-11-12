@@ -1,4 +1,4 @@
-/* 聊天備份助手 v1.3 — 本機處理，使用者明確授權後才上傳 Google Drive。 */
+/* 聊天備份助手 v1.4 — 本機處理，使用者明確授權後才上傳 Google Drive。 */
 'use strict';
 const DB_NAME='chat_backup_assistant_v1';
 const DB_VERSION=1;
@@ -75,7 +75,7 @@ async function importFiles(files){if(!files.length)return;const importButton=$('
  let extractedBytes=0;const newFiles=[];
  for(const entry of Object.values(zip.files)){if(entry.dir||!isMediaFile(entry.name)||/\.zip$/i.test(entry.name)||entry.name.startsWith('official_exports/'))continue;
   const sz=entry._data?.uncompressedSize??Infinity;if(sz>MAX_EXTRACT_FILE||extractedBytes+sz>MAX_EXTRACT_TOTAL){mediaSkip++;continue;}
-  try{const blob=await entry.async('blob');if(blob.size>MAX_EXTRACT_FILE||extractedBytes+blob.size>MAX_EXTRACT_TOTAL){mediaSkip++;continue;}extractedBytes+=blob.size;const name=entry.name.split('/').pop()||entry.name;newFiles.push({id:`zip_${file.name}_${entry.name}`,name,originalPath:entry.name,category:(entry.name.match(/^attachments\/(工作|投資|生活|感情|未分類)\//)?.[1]||determineCategory(entry.name)),type:mediaKind(name),size:blob.size,blob,importedAt:Date.now(),source:`從 ${file.name} 擷取`});}
+  try{const blob=await entry.async('blob');if(blob.size>MAX_EXTRACT_FILE||extractedBytes+blob.size>MAX_EXTRACT_TOTAL){mediaSkip++;continue;}extractedBytes+=blob.size;const name=entry.name.split('/').pop()||entry.name;newFiles.push({id:`zip_${file.name}_${entry.name}`,name,originalPath:entry.name,category:(entry.name.match(/^attachments\/(工作|投資|生活|感情|未分類)\//)?.[1]||determineCategory(entry.name)),type:mediaKind(name),size:blob.size,blob,fileModifiedAt:entry.date?.getTime?.()||Date.now(),importedAt:Date.now(),source:`從 ${file.name} 擷取`});}
   catch(e){mediaSkip++;}
  }
  if(newFiles.length){try{await txWrite('attachments',newFiles);mediaNew+=newFiles.length;}catch(e){failures.push(`${file.name}：自動擷取部分媒體未能存入本機。`);}}
@@ -89,13 +89,27 @@ async function importFiles(files){if(!files.length)return;const importButton=$('
  }
  await reload();let msg=`完成：新增 ${imported} 筆對話、更新 ${updated} 筆；新增 ${mediaNew} 個 ZIP 內附件、保存 ${savedSources} 份原始 ZIP。`;if(mediaSkip)msg+=` 另有 ${mediaSkip} 個媒體檔因大小限制略過。`;if(failures.length)msg+=`\n注意：${failures.slice(0,4).join('；')}${failures.length>4?'（尚有其他問題）':''}`;toast(msg,11000);
  }catch(e){console.error(e);toast('匯入中斷：'+e.message,8000);}finally{importButton.disabled=false;$('archiveInput').value='';}}
-async function addMedia(files){if(!files.length)return;const data=[];for(const f of files){data.push({id:`manual_${f.name}_${f.size}_${f.lastModified}`,name:f.name,originalPath:f.name,category:determineCategory(f.name),type:mediaKind(f.name),size:f.size,blob:f,source:'使用者手動加入',importedAt:Date.now()});}
+async function addMedia(files){if(!files.length)return;const data=[];for(const f of files){data.push({id:`manual_${f.name}_${f.size}_${f.lastModified}`,name:f.name,originalPath:f.name,category:determineCategory(f.name),type:mediaKind(f.name),size:f.size,blob:f,fileModifiedAt:f.lastModified,source:'使用者手動加入',importedAt:Date.now()});}
  try{await txWrite('attachments',data);await reload();toast(`已加入 ${data.length} 個原始檔案到本機。請記得另外備份到 Google Drive。`);}catch(e){toast(`附件未全部保存，可能是手機儲存空間不足：${e.message}`,6500);}}
 function renderChats(){const q=$('searchInput').value.trim().toLowerCase();$('filters').replaceChildren(...CATEGORIES.map(c=>pill(c,activeFilter,()=>{activeFilter=c;renderChats();})));
  const results=chats.filter(c=>(activeFilter==='全部'||c.category===activeFilter)&&(!q||c.title.toLowerCase().includes(q)||c.messages.some(m=>m.text.toLowerCase().includes(q))));$('matchCount').textContent=`${results.length} 筆`;
  const list=$('conversationList');list.replaceChildren();if(!results.length){const div=document.createElement('div');div.className='empty';const strong=document.createElement('b');strong.textContent=chats.length?'沒有符合條件的聊天':'尚未匯入聊天';const p=document.createElement('p');p.textContent=chats.length?'換個關鍵字或選擇「全部」試試。':'先按「匯入聊天備份」，選擇 OpenAI 官方下載的 ZIP 或 conversations.json。';div.append(strong,p);list.appendChild(div);return;}
- for(const c of results.slice(0,350)){const el=document.createElement('div');el.className='list-item';const icon=document.createElement('div');icon.className='file-icon';icon.textContent='☰';const main=document.createElement('button');main.className='item-main';const title=document.createElement('strong');title.textContent=c.title;const desc=document.createElement('p');desc.textContent=`${fmtTime(c.updatedAt)} ・ ${c.messages.length} 則訊息 ・ ${c.source||'聊天紀錄'}`;main.append(title,desc);main.addEventListener('click',()=>openReader(c.id));const cat=document.createElement('span');cat.className='category-badge';cat.textContent=c.category;el.append(icon,main,cat);list.appendChild(el);}
+ for(const c of results.slice(0,350)){const el=document.createElement('div');el.className='list-item';const icon=document.createElement('div');icon.className='file-icon';icon.textContent='☰';const main=document.createElement('button');main.className='item-main';const title=document.createElement('strong');title.textContent=c.title;const desc=document.createElement('p');desc.textContent=`${fmtTime(c.updatedAt)} ・ ${c.messages.length} 則訊息 ・ ${c.source||'聊天紀錄'}`;main.append(title,desc);main.addEventListener('click',()=>openReader(c.id));const cat=document.createElement('span');cat.className='category-badge';cat.textContent=c.category;const del=document.createElement('button');del.className='delete-chat';del.type='button';del.textContent='刪除';del.title='刪除這台裝置上的對話紀錄';del.setAttribute('aria-label',`刪除對話：${c.title}`);
+ del.addEventListener('click',()=>deleteLocalChat(c.id,del));el.classList.add('conversation-item');el.append(icon,main,cat,del);list.appendChild(el);}
  if(results.length>350){const note=document.createElement('p');note.className='small';note.textContent=`目前只顯示前 350 筆（共 ${results.length} 筆），請用搜尋縮小範圍。`;list.appendChild(note);}}
+async function deleteLocalChat(id,button){
+ const record=chats.find(c=>c.id===id);if(!record)return;
+ const message=`確定要刪除本機對話「${record.title}」嗎？\n\n這只會移除目前裝置上備份助手的這筆對話。\n不會刪除 ChatGPT 裡的對話、Google Drive 已上傳的舊備份、官方原始 ZIP 或附件。\n重新匯入原始資料時，這筆對話仍可能再出現。`;
+ if(!confirm(message))return;
+ if(button)button.disabled=true;
+ try{await txWrite('chats',[id],'delete');
+  if(openedConversation?.id===id){if($('readerDialog').open)$('readerDialog').close();openedConversation=null;}
+  await reload();$('backupInfo').textContent='本機對話已變更；請重新執行雲端原檔備份或建立本機 ZIP。';
+  $('driveResult').classList.add('hidden');
+  driveSetStatus('本機對話已刪除；已上傳至 Google Drive 的舊備份不受影響。');
+  toast(`已刪除本機對話「${record.title}」，新備份不再包含這筆紀錄。`,6500);
+ }catch(e){if(button)button.disabled=false;toast(`刪除對話失敗：${e.message}`,6500);}
+}
 function renderMedia(){$('mediaFilters').replaceChildren(...CATEGORIES.map(c=>pill(c,mediaFilter,()=>{mediaFilter=c;renderMedia();})));const matches=attachments.filter(a=>mediaFilter==='全部'||a.category===mediaFilter);const list=$('mediaList');list.replaceChildren();if(!matches.length){const d=document.createElement('div');d.className='empty';d.textContent='沒有附件，按「加入檔案」儲存原始圖片、語音或文件。';list.appendChild(d);return;}
  for(const a of matches){const el=document.createElement('div');el.className='list-item';const icon=document.createElement('div');icon.className='file-icon';icon.textContent=iconFor(a.name);const main=document.createElement('button');main.className='item-main';const t=document.createElement('strong');t.textContent=a.name;const p=document.createElement('p');p.textContent=`${a.type} ・ ${fmtSize(a.size)} ・ ${a.source}`;main.append(t,p);main.addEventListener('click',()=>downloadBlob(a.blob,a.name));const cat=document.createElement('span');cat.className='category-badge';cat.textContent=a.category;const opt=document.createElement('button');opt.className='more';opt.type='button';opt.title='更改分類';opt.setAttribute('aria-label',`更改 ${a.name} 的分類`);opt.textContent='⋯';opt.addEventListener('click',async()=>{const v=prompt(`更改「${a.name}」分類：工作 / 投資 / 生活 / 感情 / 未分類`,a.category);if(!v)return;if(!GROUPS.includes(v)){toast('分類必須是工作、投資、生活、感情、未分類');return;}a.category=v;await txWrite('attachments',[a]);await reload();});
  const del=document.createElement('button');del.className='delete-file';del.type='button';del.textContent='刪除';del.title='從此裝置移除附件';del.setAttribute('aria-label',`刪除附件：${a.name}`);
@@ -125,7 +139,7 @@ const DRIVE_CLIENT_ID_STORAGE='backup_assistant_google_client_id';
 let googleToken=null, googleTokenExpiry=0, googleTokenClient=null, driveBusy=false;
 const driveSetStatus=(message,kind='')=>{const el=$('driveStatus');el.textContent=message;el.className='drive-status '+kind;};
 function getClientId(){return $('googleClientId').value.trim();}
-function setDriveButtons(busy){driveBusy=busy;const b=$('driveOneClick');b.disabled=busy;b.textContent=busy?'正在逐檔上傳，請保持畫面開啟…':'☁ 一鍵上傳原始檔到 Drive（不壓縮）';}
+function setDriveButtons(busy){driveBusy=busy;const b=$('driveOneClick');b.disabled=busy;b.textContent=busy?'正在比對及備份，請保持畫面開啟…':'☁ 一鍵備份新增檔案（自動略過重複）';}
 function getDriveAccessToken(clientId){
   if(googleToken&&Date.now()<googleTokenExpiry-60000)return Promise.resolve(googleToken);
   if(!window.google?.accounts?.oauth2)throw Error('Google 登入元件未載入。請確認網路連線，使用 Safari 一般分頁重新整理。');
@@ -181,44 +195,99 @@ function cloudSafeName(s){return escapePath(s).replace(/[\\/]/g,'_')||'未命名
 function cloudSafeSegments(s){const segments=String(s||'').replace(/\\/g,'/').split('/').filter(x=>x&&x!=='.');if(segments.length>16)throw Error('原始 ZIP 含有過深的資料夾路徑，請在電腦另外處理，避免路徑遺失。');return segments.map(x=>x==='..'?'_上層_':cloudSafeName(x));}
 function cloudTextBlob(text){return new Blob([text],{type:'text/plain;charset=utf-8'});}
 function cloudJsonBlob(value){return new Blob([JSON.stringify(value,null,2)],{type:'application/json'});}
+// v1.4：每份內容只保存一次；相同檔案在再次備份時會跳過（不刪除任何唯一原件）。
+const CLOUD_ARCHIVE_LEGACY_COMPARE_MAX=12*1024*1024;
+const CLOUD_MAX_ITEMS_TO_SCAN=15000;
+const CLOUD_MAX_LEGACY_COMPARE=160;
+const CLOUD_FOLDER_MIME='application/vnd.google-apps.folder';
+function cloudDate(value){
+  const d=value?new Date(value):new Date();
+  const safe=Number.isNaN(d.getTime())?new Date():d;
+  return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(safe);
+}
+function cloudCategory(v){return GROUPS.includes(v)?v:'未分類';}
+function cloudDatedName(date,category,original){
+  const safe=cloudSafeName(original).replace(/^\d{4}[-_]\d\d[-_]\d\d[_-](?:工作|投資|生活|感情|未分類)_/,'');
+  const dot=safe.lastIndexOf('.');
+  const ext=dot>0?safe.slice(dot):'';
+  const stem=dot>0?safe.slice(0,dot):safe;
+  return `${date}_${cloudCategory(category)}_${stem.slice(0,Math.max(24,120-ext.length))}${ext}`;
+}
+function cloudNameWithSuffix(name,suffix){
+  const k=name.lastIndexOf('.');return k>0?`${name.slice(0,k)}_${suffix}${name.slice(k)}`:`${name}_${suffix}`;
+}
+async function cloudSha256(blob){
+  if(!globalThis.crypto?.subtle)throw Error('此瀏覽器無法執行 SHA-256，請改用 HTTPS 的 Safari/Chrome。');
+  const digest=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 async function cloudMakePlan(){
- const jobs=[];const opened=[];const exportedAt=new Date().toISOString();
- // JSON 是備份助手可重新匯入的資料；TXT 讓人不經過 ZIP 即可閱讀。
- jobs.push({dirs:['聊天紀錄'],name:'conversations_normalized.json',blob:cloudJsonBlob(chats),source:'整理後的聊天索引 JSON'});
- for(const c of chats){const cat=GROUPS.includes(c.category)?c.category:'未分類';const tail=cloudSafeName(c.id).slice(0,28);
-   jobs.push({dirs:['聊天紀錄',cat],name:`${cloudSafeName(c.title).slice(0,90)}_${tail}.txt`,blob:cloudTextBlob(formattedConversation(c)),source:'聊天文字'});
+ const jobs=[],opened=[];const exportedAt=new Date().toISOString();
+ if(chats.length){
+   jobs.push({category:'未分類',date:cloudDate(),name:'聊天索引.json',blob:cloudJsonBlob(chats),source:'備份助手可還原的聊天索引',kind:'index'});
+ }
+ for(const c of chats){
+   jobs.push({category:cloudCategory(c.category),date:cloudDate(c.updatedAt||c.createdAt),name:`${cloudSafeName(c.title).slice(0,90)}_${cloudSafeName(c.id).slice(0,26)}.txt`,blob:cloudTextBlob(formattedConversation(c)),source:'聊天文字',kind:'chat'});
  }
  for(const a of attachments){
-   if(!a.blob||typeof a.blob.size!=='number')throw Error(`附件「${a.name}」在本機沒有可用的原始位元組，無法完整備份。`);
-   if(/\.zip$/i.test(a.name)||cloudMime(a.name,a.blob)==='application/zip')throw Error(`附件「${a.name}」是 ZIP；為符合雲端不儲存壓縮檔，請先在本機解壓後重新加入原檔。`);
-   const cat=GROUPS.includes(a.category)?a.category:'未分類';
-   jobs.push({dirs:['附件',cat],name:cloudSafeName(a.name),blob:a.blob,source:a.source||'本機附件'});
+   if(!a.blob||typeof a.blob.size!=='number')throw Error(`附件「${a.name}」在本機沒有可用原始位元組，無法完整備份。`);
+   if(/\.zip$/i.test(a.name)||cloudMime(a.name,a.blob)==='application/zip')throw Error(`附件「${a.name}」是 ZIP；雲端不存壓縮檔，請先解壓再加入原檔。`);
+   jobs.push({category:cloudCategory(a.category),date:cloudDate(a.fileModifiedAt||a.lastModified||a.importedAt),name:cloudSafeName(a.name),blob:a.blob,source:a.source||'本機附件',kind:'attachment'});
  }
- // 官方 ZIP 在本機仍保留，Drive 僅存其中已解壓的原始檔案，不存 ZIP 容器。
- for(let i=0;i<archives.length;i++){
-   const archive=archives[i];let zip;
-   try{zip=await JSZip.loadAsync(archive.blob);}catch(e){throw Error(`原始備份「${archive.name}」無法解壓，為避免漏檔，雲端備份已中止。`);}
+ for(const archive of archives){
+   let zip;try{zip=await JSZip.loadAsync(archive.blob);}catch(e){throw Error(`原始備份「${archive.name}」無法解壓，為避免漏檔，這次上傳已中止。`);}
    const entries=Object.values(zip.files).filter(e=>!e.dir);
-   if(entries.length>MAX_CLOUD_ARCHIVE_ITEMS)throw Error(`「${archive.name}」內有 ${entries.length} 個檔案，超過手機安全批次上限。請改用電腦解壓後分批匯入。`);
-   const root=`${String(i+1).padStart(3,'0')}_${cloudSafeName(archive.name).replace(/\.zip$/i,'')}`;
+   if(entries.length>MAX_CLOUD_ARCHIVE_ITEMS)throw Error(`「${archive.name}」內檔案過多，請改用電腦分批匯入。`);
    for(const entry of entries){
      const parts=cloudSafeSegments(entry.name);if(!parts.length)continue;
-     const fileName=parts.pop();
-     if(/\.zip$/i.test(fileName))throw Error(`原始匯出「${archive.name}」內包含另一份 ZIP（${entry.name}）。為符合不傳 ZIP 的要求，請先另外解壓此檔案再備份。`);
+     const name=parts[parts.length-1];
+     if(/\.zip$/i.test(name))throw Error(`官方備份內仍包含 ZIP：「${name}」，請先解壓。`);
      const size=entry._data?.uncompressedSize;
-     if(!Number.isFinite(size)||size>MAX_CLOUD_ARCHIVE_ENTRY)throw Error(`「${entry.name}」解壓後超過 ${fmtSize(MAX_CLOUD_ARCHIVE_ENTRY)} 或無法判斷大小；本次不會宣稱完整備份。請在電腦另外解壓後保存。`);
-     jobs.push({dirs:['官方匯出解壓',root,...parts],name:fileName,zipEntry:entry,size,source:`原始匯出 ${archive.name}`});
+     if(!Number.isFinite(size)||size>MAX_CLOUD_ARCHIVE_ENTRY)throw Error(`原始檔「${name}」超過安全解壓上限，請改用電腦。`);
+     jobs.push({category:determineCategory(entry.name),date:cloudDate(entry.date||archive.importedAt),name,zipEntry:entry,size,source:`從官方匯出 ${archive.name} 解壓`,kind:'official'});
    }
    opened.push({name:archive.name,entries:entries.length});
  }
- if(jobs.length>10000)throw Error('本次檔案數量超過 10000，請分批保存。');
- // 避免同一資料夾內有重複檔名，確保 Drive 端容易核對。
- const used=new Set();
- for(const job of jobs){const path=job.dirs.join('/');const original=job.name;let name=original;let n=2;
-   while(used.has(`${path}/${name}`)){const dot=original.lastIndexOf('.');const base=dot>0?original.slice(0,dot):original;const ext=dot>0?original.slice(dot):'';name=`${base}_${n++}${ext}`;}
-   job.name=name;used.add(`${path}/${name}`);
- }
+ if(jobs.length>10000)throw Error('本次備份超過 10000 份檔案，請分批匯入。');
  return {jobs,opened,exportedAt};
+}
+// appProperties 僅這個 Google OAuth 用戶端可讀；SHA-256 可辨認已經上傳的相同內容。
+async function cloudInventory(parentId,token){
+ const seen=new Set(),files=[],stack=[parentId];
+ while(stack.length){
+   const folder=stack.pop();if(seen.has(folder))continue;seen.add(folder);
+   const entries=await cloudListFolderItems(folder,token);
+   for(const f of entries){
+     files.push(f);
+     if(files.length>CLOUD_MAX_ITEMS_TO_SCAN)throw Error('備份資料夾內容超過安全掃描上限，已停止，避免判斷錯誤造成重複備份。');
+     if(f.mimeType===CLOUD_FOLDER_MIME)stack.push(f.id);
+   }
+ }
+ return files;
+}
+function cloudLegacyBaseName(name){return String(name||'').replace(/^\d{4}-\d\d-\d\d_(工作|投資|生活|感情|未分類)_/,'');}
+async function cloudLegacyMatch(job,sha,inventory,token,cache){
+ if(job.size>CLOUD_ARCHIVE_LEGACY_COMPARE_MAX)return null;
+ const same=inventory.filter(f=>f.mimeType!==CLOUD_FOLDER_MIME&&!f.appProperties?.backupSha256&&Number(f.size)===job.size&&
+   (cloudLegacyBaseName(f.name)===job.originalName || (job.kind==='index'&&f.name==='conversations_normalized.json')));
+ for(const f of same){
+   if(cache.count>=CLOUD_MAX_LEGACY_COMPARE)break;
+   cache.count++;
+   let oldSha=cache.hashes.get(f.id);
+   if(!oldSha){
+     const r=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(f.id)}?alt=media`,{headers:{Authorization:`Bearer ${token}`}});
+     if(!r.ok)continue;
+     const buf=await r.arrayBuffer();
+     if(buf.byteLength!==job.size)continue;
+     oldSha=await cloudSha256(new Blob([buf]));cache.hashes.set(f.id,oldSha);
+   }
+   if(oldSha===sha)return f;
+ }
+ return null;
+}
+async function cloudEnsureChildFolder(name,parentId,token){
+ const old=(await cloudListFolderItems(parentId,token)).find(f=>f.mimeType===CLOUD_FOLDER_MIME&&f.name===name);
+ return old?.id||cloudCreateFolder(name,parentId,token);
 }
 async function cloudCreateFolder(name,parentId,token){
  const parent=parentId?[parentId]:undefined;
@@ -226,8 +295,8 @@ async function cloudCreateFolder(name,parentId,token){
  const r=await driveRequest('https://www.googleapis.com/drive/v3/files?fields=id,name,parents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(metadata)},token);
  if(!r.id)throw Error(`建立 Google Drive 資料夾「${name}」失敗`);return r.id;
 }
-async function cloudUploadFile({name,blob,folderId,token}){
- const mime=cloudMime(name,blob);const metadata={name,mimeType:mime,parents:[folderId],description:'ChatGPT 備份助手 v1.3 原始檔案備份（非 ZIP）'};
+async function cloudUploadFile({name,blob,folderId,token,sha256}){
+ const mime=cloudMime(name,blob);const metadata={name,mimeType:mime,parents:[folderId],description:'ChatGPT 備份助手 v1.4 單檔備份（SHA-256 防重複）',appProperties:{backupSha256:sha256,backupVersion:'1.4'}};
  if(blob.size<=CLOUD_MULTIPART_MAX){
    const boundary='chatbackup_'+Math.random().toString(36).slice(2);
    const body=new Blob([`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,JSON.stringify(metadata),`\r\n--${boundary}\r\nContent-Type: ${mime}\r\n\r\n`,blob,`\r\n--${boundary}--\r\n`]);
@@ -253,7 +322,7 @@ async function cloudListFolderItems(folderId,token){
  let pageToken='',result=[];
  do{
    const q=`'${quoteDriveQuery(folderId)}' in parents and trashed = false`;
-   const params=new URLSearchParams({q,fields:'nextPageToken,files(id,name,size,mimeType,parents)',pageSize:'1000'});
+   const params=new URLSearchParams({q,fields:'nextPageToken,files(id,name,size,mimeType,parents,appProperties)',pageSize:'1000'});
    if(pageToken)params.set('pageToken',pageToken);
    const page=await driveRequest(`https://www.googleapis.com/drive/v3/files?${params}`,{},token);
    result.push(...arr(page.files));pageToken=page.nextPageToken||'';
@@ -265,7 +334,7 @@ async function cloudVerifyFiles(expectedByParent,token){
    const listed=await cloudListFolderItems(folderId,token);
    const map=new Map(listed.map(f=>[f.id,f]));
    for(const wanted of items){const found=map.get(wanted.id);
-     if(!found||found.name!==wanted.name||Number(found.size)!==wanted.size)throw Error(`雲端核對失敗：${wanted.name}；請勿把這次視為完整備份。`);
+     if(!found||found.name!==wanted.name||Number(found.size)!==wanted.size||(wanted.sha&&found.appProperties?.backupSha256!==wanted.sha))throw Error(`雲端核對失敗：${wanted.name}；請勿把這次視為完整備份。`);
    }
  }
 }
@@ -273,55 +342,70 @@ async function oneClickDrive(){
  if(driveBusy)return;
  const clientId=getClientId();
  if(!/^[0-9]+-[a-z0-9_-]+\.apps\.googleusercontent\.com$/i.test(clientId)){
-   driveSetStatus('請先填入 Google Cloud 的網頁 OAuth Client ID。','error');return;
+   driveSetStatus('請先填入 Google OAuth 網頁用戶端 ID。','error');return;
  }
- if(!chats.length&&!attachments.length&&!archives.length){driveSetStatus('本機沒有可上傳的聊天或附件，請先匯入。','error');return;}
+ if(!chats.length&&!attachments.length&&!archives.length){driveSetStatus('本機沒有可上傳的聊天或附件。','error');return;}
  localStorage.setItem(DRIVE_CLIENT_ID_STORAGE,clientId);
  $('driveResult').classList.add('hidden');setDriveButtons(true);
- let runId=null;
+ let uploaded=0,skipped=0,legacySkipped=0;
  try{
-   // 首先呼叫 Google 授權，維持 Safari 彈窗的使用者操作脈絡。
    driveSetStatus('正在請求 Google 授權…');const token=await getDriveAccessToken(clientId);
-   driveSetStatus('正在檢查附件與官方 ZIP 的可解壓內容…');const {jobs,opened,exportedAt}=await cloudMakePlan();
+   driveSetStatus('正在準備分類、日期與檔案資料…');const {jobs}=await cloudMakePlan();
    const parent=await driveEnsureFolder(token);
-   const now=cloudTimestamp();runId=await cloudCreateFolder(`未完成_${now}`,parent,token);
-   const folderMap=new Map([['',runId]]),expectedByParent=new Map();
-   const folderFor=async dirs=>{let path='',pid=runId;for(const segment of dirs){path+='/'+segment;if(!folderMap.has(path))folderMap.set(path,await cloudCreateFolder(segment,pid,token));pid=folderMap.get(path);}return pid;};
-   const stored=[];let count=0;
-   const tasks=[...jobs];
-   // README 和清單不壓縮；完成前先保存檔案，再核對後才改名為「完成」。
-   const readme=`ChatGPT 聊天備份助手 v1.3｜非壓縮雲端備份\n產生時間：${exportedAt}\n每個聊天與附件均為獨立檔案，不包含 ZIP 容器。\n聊天紀錄/conversations_normalized.json 可以下載後重新匯入助手（分類資訊保留）。\n聊天文字可以直接在 Drive 瀏覽；附件保留匯入時的位元組與格式。\n官方匯出解壓/ 保存了本機已匯入官方 ZIP 裡能解壓的各原始檔案。\n備份助手無法讀取尚未匯入的 ChatGPT 新對話；官方資料也可能缺少某些媒體。\n如果某次資料夾仍以「未完成_」開頭，表示未通過全部上傳及核對，不可視為完成。\n`; 
-   tasks.push({dirs:[],name:'README_請先閱讀.txt',blob:cloudTextBlob(readme),source:'備份說明'});
-   const summary={app:'聊天備份助手',version:'1.3',backupType:'individual-files-no-zip',createdAt:exportedAt,chatCount:chats.length,attachmentCount:attachments.length,officialArchiveCount:archives.length,officialArchiveEntries:opened,files:jobs.map(j=>({path:[...j.dirs,j.name].join('/'),bytes:j.size??j.blob?.size??null,source:j.source})),limitations:['只含備份助手已取得的資料','官方 ZIP 可能未包含所有附件或錄音','不會自動擷取新聊天']};
-   tasks.push({dirs:[],name:'備份清單.json',blob:cloudJsonBlob(summary),source:'檔案清單'});
-   const total=tasks.length;
-   for(const task of tasks){
-     count++;driveSetStatus(`直接上傳非壓縮檔案 ${count}/${total}：${task.name}（請保持畫面開啟）`);
-     const folderId=await folderFor(task.dirs);
-     let blob=task.blob;
-     if(task.zipEntry){try{blob=await task.zipEntry.async('blob');}catch(e){throw Error(`解壓失敗：${task.name}`);}}
-     const expectedSize=task.size??blob.size;
-     if(blob.size!==expectedSize)throw Error(`檔案「${task.name}」大小異常`);
-     const sent=await cloudUploadFile({name:task.name,blob,folderId,token});
-     if(!sent?.id||sent.name!==task.name||Number(sent.size)!==blob.size||!sent.parents?.includes(folderId))throw Error(`「${task.name}」上傳回應未通過檔名、大小或路徑核對。`);
-     if(!expectedByParent.has(folderId))expectedByParent.set(folderId,[]);
-     expectedByParent.get(folderId).push({id:sent.id,name:task.name,size:blob.size});
-     stored.push({id:sent.id,name:task.name,size:blob.size});
-     // 循序處理，降低 iPhone 的記憶體壓力。
+   driveSetStatus('正在讀取雲端備份清單，檢查已保存的檔案…');
+   const inventory=await cloudInventory(parent,token);
+   const fingerprints=new Map();
+   const legacyCache={count:0,hashes:new Map()};
+   for(const f of inventory){
+     const sha=f.appProperties?.backupSha256;
+     if(sha&&Number.isFinite(Number(f.size)))fingerprints.set(`${f.size}:${sha}`,f);
    }
-   driveSetStatus('上傳完成，正在逐資料夾核對檔案名稱與大小…');
-   await cloudVerifyFiles(expectedByParent,token);
-   const doneName=`完成_${now}_${stored.length}檔`;
-   const renamed=await driveRequest(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(runId)}?fields=id,name`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:doneName})},token);
-   if(renamed?.name!==doneName)throw Error('檔案已上傳，但無法標記為已完成，請開啟雲端確認。');
-   $('driveFileLink').href=`https://drive.google.com/drive/folders/${encodeURIComponent(runId)}`;
-   $('driveFolderLink').href=`https://drive.google.com/drive/folders/${encodeURIComponent(parent)}`;
+   const groupsId=new Map(),existingNames=new Map(),expectedByParent=new Map();
+   const processed=new Set();
+   let count=0;
+   for(const job of jobs){
+     count++;driveSetStatus(`檢查 ${count}/${jobs.length}：${job.name}（已上傳 ${uploaded}、略過重複 ${skipped}）`);
+     let blob=job.blob;
+     if(job.zipEntry){try{blob=await job.zipEntry.async('blob');}catch(e){throw Error(`解壓失敗：${job.name}`);}}
+     if(blob.size!==(job.size??blob.size))throw Error(`原始檔「${job.name}」大小不符`);
+     job.size=blob.size;job.originalName=job.name;
+     const sha=await cloudSha256(blob);
+     const key=`${blob.size}:${sha}`;
+     if(processed.has(key)||fingerprints.has(key)){skipped++;continue;}
+     const old=await cloudLegacyMatch(job,sha,inventory,token,legacyCache);
+     if(old){legacySkipped++;skipped++;fingerprints.set(key,old);processed.add(key);continue;}
+     const category=cloudCategory(job.category);
+     const base=cloudDatedName(job.date,category,job.originalName);
+     let name=base;
+     // 若日期與檔名相同但檔案內容已變，保留兩者，不覆蓋已備份的原件。
+     if(!groupsId.has(category)){
+       const categoryRoot=await cloudEnsureChildFolder('分類歸檔',parent,token);
+       groupsId.set(category,await cloudEnsureChildFolder(category,categoryRoot,token));
+     }
+     const folderId=groupsId.get(category);
+     if(!existingNames.has(folderId))existingNames.set(folderId,new Set((await cloudListFolderItems(folderId,token)).map(f=>f.name)));
+     const names=existingNames.get(folderId);
+     if(names.has(name))name=cloudNameWithSuffix(base,sha.slice(0,10));
+     let i=2;while(names.has(name)){name=cloudNameWithSuffix(base,`${sha.slice(0,10)}_${i++}`);}
+     names.add(name);
+     driveSetStatus(`正在上傳 ${count}/${jobs.length}：${name}`);
+     const sent=await cloudUploadFile({name,blob,folderId,token,sha256:sha});
+     if(!sent?.id||sent.name!==name||Number(sent.size)!==blob.size||!sent.parents?.includes(folderId))throw Error(`「${name}」上傳後驗證失敗，請重試。`);
+     if(!expectedByParent.has(folderId))expectedByParent.set(folderId,[]);
+     expectedByParent.get(folderId).push({id:sent.id,name,size:blob.size,sha});
+     inventory.push({...sent,mimeType:cloudMime(name,blob),appProperties:{backupSha256:sha}});
+     fingerprints.set(key,sent);processed.add(key);uploaded++;
+   }
+   if(uploaded){driveSetStatus('上傳完成，正在核對 Google Drive 的檔名、內容指紋及大小…');await cloudVerifyFiles(expectedByParent,token);}
+   $('driveFileLink').href=`https://drive.google.com/drive/folders/${encodeURIComponent(parent)}`;
+   $('driveFolderLink').href=$('driveFileLink').href;
    $('driveResult').classList.remove('hidden');
-   driveSetStatus(`完成！${stored.length} 個非壓縮檔案已直接存到 Google Drive，並核對數量、名稱和大小。`,'success');
-   toast('Google Drive 非壓縮備份已完成！',6000);
- }catch(e){console.error(e);const extra=runId?'；雲端若出現「未完成_」資料夾，裡面的部分檔案不能視為完整備份。':'';driveSetStatus(`未完成：${e.message}${extra}`,'error');toast('一鍵備份未完成，原本本機資料沒有刪除。',6500);}finally{setDriveButtons(false);}
+   const info=uploaded===0?`沒有新檔案：已保存的 ${skipped} 個檔案全部略過，沒有重複上傳。`:`完成！新增 ${uploaded} 個檔案、略過已備份的 ${skipped} 個檔案。`;
+   driveSetStatus(info+(legacySkipped?`（其中 ${legacySkipped} 個是舊版備份中比對相同的原檔）`:'')+' 未刪除原始資料。','success');
+   toast(uploaded?`上傳 ${uploaded} 個新檔案，略過 ${skipped} 個重複檔。`:'已經備份過，不必重新上傳。',6500);
+ }catch(e){console.error(e);driveSetStatus(`未完成：${e.message}。已成功上傳的檔案會保留，下次會跳過相同內容並繼續。`,'error');toast('備份尚未全部完成，沒有刪除任何本機檔案。',6500);}finally{setDriveButtons(false);}
 }
 
 function selectTab(name){activeTab=name;for(const btn of document.querySelectorAll('[data-tab]')){btn.classList.toggle('active',btn.dataset.tab===name);if(btn.dataset.tab===name)btn.setAttribute('aria-current','page');else btn.removeAttribute('aria-current');}for(const v of ['chats','media','backup','guide'])$(`view-${v}`).classList.toggle('hidden',v!==name);}
-function installEvents(){document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>selectTab(b.dataset.tab)));$('openImport').addEventListener('click',()=>$('archiveInput').click());$('openMedia').addEventListener('click',()=>$('mediaInput').click());$('mediaAddMore').addEventListener('click',()=>$('mediaInput').click());$('archiveInput').addEventListener('change',e=>importFiles([...e.target.files]));$('mediaInput').addEventListener('change',e=>addMedia([...e.target.files]).finally(()=>{$('mediaInput').value='';}));$('searchInput').addEventListener('input',renderChats);$('closeReader').addEventListener('click',()=>$('readerDialog').close());$('closeNote').addEventListener('click',()=>$('noteDialog').close());$('readerCategory').addEventListener('change',async e=>{if(!openedConversation)return;openedConversation.category=e.target.value;await txWrite('chats',[openedConversation]);await reload();toast('分類已更新');});$('copyConversation').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(formattedConversation(openedConversation));toast('聊天內容已複製');}catch(e){toast('複製失敗，可使用「匯出文字檔」');}});$('exportConversation').addEventListener('click',()=>{if(!openedConversation)return;downloadBlob(new Blob([formattedConversation(openedConversation)],{type:'text/plain;charset=utf-8'}),`${escapePath(openedConversation.title)}.txt`);});$('newNote').addEventListener('click',()=>{fillSelect($('noteCategory'),'未分類');$('noteDialog').showModal();});$('noteForm').addEventListener('submit',async e=>{e.preventDefault();const now=Date.now();const entry={id:`manual_${now}_${Math.random().toString(36).slice(2)}`,title:$('noteTitle').value.trim(),category:$('noteCategory').value,createdAt:now,updatedAt:now,messages:[{role:'user',text:$('noteBody').value,time:now,id:null}],source:'手動加入的文字',importedAt:now};if(!entry.title||!entry.messages[0].text.trim())return;await txWrite('chats',[entry]);$('noteForm').reset();$('noteDialog').close();await reload();toast('手動紀錄已保存到本機。');});$('buildBackup').addEventListener('click',createBackup);$('driveOneClick').addEventListener('click',oneClickDrive);$('shareBackup').addEventListener('click',shareBackup);$('downloadBackup').addEventListener('click',()=>{if(backupFile)downloadBlob(backupFile,backupFile.name);});$('clearAll').addEventListener('click',async()=>{if(!confirm('確定刪除本工具在這台裝置上的全部聊天、圖片、錄音與原始 ZIP 嗎？\n\n這不會刪除 ChatGPT 或 Google Drive 中的原始資料。'))return;if(!confirm('最後確認：本機資料刪除後無法復原。請確定你已把 ZIP 備份到 Google Drive。'))return;for(const store of ['chats','attachments','archives'])await new Promise((resolve,reject)=>{const tx=database.transaction(store,'readwrite');tx.objectStore(store).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});await reload();toast('本機資料已清除。');});$('readerDialog').addEventListener('click',e=>{if(e.target===$('readerDialog'))$('readerDialog').close();});$('noteDialog').addEventListener('click',e=>{if(e.target===$('noteDialog'))$('noteDialog').close();});}
-(async function init(){const saved=localStorage.getItem(DRIVE_CLIENT_ID_STORAGE);if(saved)$('googleClientId').value=saved;installEvents();try{database=await openDB();await reload();if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=1.3.1').catch(()=>{});}catch(e){console.error(e);toast(`本機資料庫無法啟用：${e.message}。請改以 Safari/Chrome 的一般瀏覽模式使用。`,9000);}})();
+function installEvents(){document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>selectTab(b.dataset.tab)));$('openImport').addEventListener('click',()=>$('archiveInput').click());$('openMedia').addEventListener('click',()=>$('mediaInput').click());$('mediaAddMore').addEventListener('click',()=>$('mediaInput').click());$('archiveInput').addEventListener('change',e=>importFiles([...e.target.files]));$('mediaInput').addEventListener('change',e=>addMedia([...e.target.files]).finally(()=>{$('mediaInput').value='';}));$('searchInput').addEventListener('input',renderChats);$('closeReader').addEventListener('click',()=>$('readerDialog').close());$('deleteOpenConversation').addEventListener('click',()=>{if(openedConversation)deleteLocalChat(openedConversation.id,$('deleteOpenConversation'));});$('closeNote').addEventListener('click',()=>$('noteDialog').close());$('readerCategory').addEventListener('change',async e=>{if(!openedConversation)return;openedConversation.category=e.target.value;await txWrite('chats',[openedConversation]);await reload();toast('分類已更新');});$('copyConversation').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(formattedConversation(openedConversation));toast('聊天內容已複製');}catch(e){toast('複製失敗，可使用「匯出文字檔」');}});$('exportConversation').addEventListener('click',()=>{if(!openedConversation)return;downloadBlob(new Blob([formattedConversation(openedConversation)],{type:'text/plain;charset=utf-8'}),`${escapePath(openedConversation.title)}.txt`);});$('newNote').addEventListener('click',()=>{fillSelect($('noteCategory'),'未分類');$('noteDialog').showModal();});$('noteForm').addEventListener('submit',async e=>{e.preventDefault();const now=Date.now();const entry={id:`manual_${now}_${Math.random().toString(36).slice(2)}`,title:$('noteTitle').value.trim(),category:$('noteCategory').value,createdAt:now,updatedAt:now,messages:[{role:'user',text:$('noteBody').value,time:now,id:null}],source:'手動加入的文字',importedAt:now};if(!entry.title||!entry.messages[0].text.trim())return;await txWrite('chats',[entry]);$('noteForm').reset();$('noteDialog').close();await reload();toast('手動紀錄已保存到本機。');});$('buildBackup').addEventListener('click',createBackup);$('driveOneClick').addEventListener('click',oneClickDrive);$('shareBackup').addEventListener('click',shareBackup);$('downloadBackup').addEventListener('click',()=>{if(backupFile)downloadBlob(backupFile,backupFile.name);});$('clearAll').addEventListener('click',async()=>{if(!confirm('確定刪除本工具在這台裝置上的全部聊天、圖片、錄音與原始 ZIP 嗎？\n\n這不會刪除 ChatGPT 或 Google Drive 中的原始資料。'))return;if(!confirm('最後確認：本機資料刪除後無法復原。請確定你已把 ZIP 備份到 Google Drive。'))return;for(const store of ['chats','attachments','archives'])await new Promise((resolve,reject)=>{const tx=database.transaction(store,'readwrite');tx.objectStore(store).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});await reload();toast('本機資料已清除。');});$('readerDialog').addEventListener('click',e=>{if(e.target===$('readerDialog'))$('readerDialog').close();});$('noteDialog').addEventListener('click',e=>{if(e.target===$('noteDialog'))$('noteDialog').close();});}
+(async function init(){const saved=localStorage.getItem(DRIVE_CLIENT_ID_STORAGE);if(saved)$('googleClientId').value=saved;installEvents();try{database=await openDB();await reload();if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=1.4').catch(()=>{});}catch(e){console.error(e);toast(`本機資料庫無法啟用：${e.message}。請改以 Safari/Chrome 的一般瀏覽模式使用。`,9000);}})();

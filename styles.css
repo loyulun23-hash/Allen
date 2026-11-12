@@ -32,3 +32,22 @@
   .media-item .more {grid-column:3;grid-row:1;justify-self:end}
   .media-item .delete-file {grid-column:3;grid-row:2;justify-self:end;min-width:58px;min-height:36px;margin:0}
 }
+
+/* v1.3.2 — 歷史對話刪除按鈕。手機不隱藏操作。 */
+.conversation-item {display:grid;grid-template-columns:42px minmax(0,1fr) auto auto;align-items:center;gap:11px}
+.conversation-item .item-main {min-width:0}
+.delete-chat {display:inline-flex;align-items:center;justify-content:center;border:1px solid #e7bfc5;background:#fff7f8;color:#913443;border-radius:9px;min-height:38px;padding:8px 13px;font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer;flex-shrink:0}
+.delete-chat:hover {background:#ffe8ea;border-color:#d88f99}
+.delete-chat:focus-visible {outline:3px solid #c97486;outline-offset:2px}
+.delete-chat:disabled {opacity:.5;cursor:wait}
+.reader-delete {margin-right:auto}
+.dialog-bottom {flex-wrap:wrap}
+.chat-delete-hint {margin:0 0 13px}
+@media(max-width:660px){
+ .conversation-item {grid-template-columns:36px minmax(0,1fr) auto;grid-template-rows:auto auto;gap:7px 9px;padding:12px}
+ .conversation-item .file-icon {grid-column:1;grid-row:1 / span 2;width:36px;height:36px}
+ .conversation-item .item-main {grid-column:2;grid-row:1 / span 2}
+ .conversation-item .category-badge {grid-column:3;grid-row:1;justify-self:end}
+ .conversation-item .delete-chat {grid-column:3;grid-row:2;justify-self:end;min-width:58px;min-height:36px;padding:7px 9px}
+ .reader-delete {margin-right:auto}
+}
