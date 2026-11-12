@@ -19,3 +19,16 @@
 
 /* v1.3：逐檔備份狀態，手機上長檔名自動換行 */
 .drive-result,.drive-status{overflow-wrap:anywhere;word-break:break-word}
+
+/* v1.3.1: Keep per-file delete button visible on narrow screens. */
+.media-item {display:grid;grid-template-columns:42px minmax(0,1fr) auto auto auto;align-items:center;gap:11px}
+.media-item .item-main {min-width:0}
+.media-item .delete-file {display:inline-flex;align-items:center;justify-content:center;position:relative;visibility:visible;opacity:1}
+@media(max-width:660px){
+  .media-item {grid-template-columns:36px minmax(0,1fr) auto;grid-template-rows:auto auto;gap:7px 9px;padding:12px}
+  .media-item .file-icon {grid-column:1;grid-row:1 / span 2;width:36px;height:36px}
+  .media-item .item-main {grid-column:2;grid-row:1}
+  .media-item .category-badge {grid-column:2;grid-row:2;justify-self:start}
+  .media-item .more {grid-column:3;grid-row:1;justify-self:end}
+  .media-item .delete-file {grid-column:3;grid-row:2;justify-self:end;min-width:58px;min-height:36px;margin:0}
+}
